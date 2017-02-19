@@ -27,6 +27,45 @@ CONST.TYPE_MISS = 2; // 2 = water with a cannonball in it (missed shot)
 CONST.TYPE_HIT = 3; // 3 = damaged ship (hit shot)
 CONST.TYPE_SUNK = 4; // 4 = sunk ship
 
+// These numbers correspond to CONST.AVAILABLE_SHIPS
+// 0) 'carrier' 1) 'battleship' 2) 'destroyer' 3) 'submarine' 4) 'patrolboat'
+// This variable is only used when DEBUG_MODE === true.
+Game.usedShips = [CONST.UNUSED, CONST.UNUSED, CONST.UNUSED, CONST.UNUSED, CONST.UNUSED];
+CONST.USED = 1;
+CONST.UNUSED = 0;
+
+//=================//
+//      Stats      //
+//=================//
+// Constructor
+function Stats(){
+    this.shotsTaken = 0;
+    this.shotsHit = 0;
+    if (DEBUG_MODE) {
+        this.skipCurrentGame = true;
+    }
+}
+Stats.prototype.incrementShots = function() {
+    this.shotsTaken++;
+};
+Stats.prototype.hitShot = function() {
+    this.shotsHit++;
+};
+Stats.prototype.wonGame = function() {
+    this.gamesPlayed++;
+    this.gamesWon++;
+    if (!DEBUG_MODE) {
+        ga('send', 'event', 'gameOver', 'win', this.uuid);
+    }
+};
+Stats.prototype.lostGame = function() {
+    this.gamesPlayed++;
+    if (!DEBUG_MODE) {
+        ga('send', 'event', 'gameOver', 'lose', this.uuid);
+    }
+};
+
+
 //=================//
 //      Game       //
 //=================//
@@ -36,7 +75,115 @@ function Game(size) {
     this.shotsTaken = 0;
     this.init();
 }
+Game.size = 10; // Default grid size is 10x10
+Game.gameOver = false;
+// Checks if the game is won, and if it is, re-initializes the game
+Game.prototype.checkIfWon = function() {
+    if (this.computerFleet.allShipsSunk()) {
+        alert('Congratulations, you win!');
+        Game.gameOver = true;
+        Game.stats.wonGame();
+        Game.stats.syncStats();
+        Game.stats.updateStatsSidebar();
+        this.showRestartSidebar();
+    } else if (this.humanFleet.allShipsSunk()) {
+        alert('Yarr! The computer sank all your ships. Try again.');
+        Game.gameOver = true;
+        Game.stats.lostGame();
+        Game.stats.syncStats();
+        Game.stats.updateStatsSidebar();
+        this.showRestartSidebar();
+    }
+};
+// Shoots at the target player on the board.
+// Returns {int} Constants.TYPE: What the shot uncovered
+Game.prototype.shoot = function(x, y, targetPlayer) {
+    var targetGrid;
+    var targetFleet;
+    if (targetPlayer === CONST.HUMAN_PLAYER) {
+        targetGrid = this.humanBoard;
+        targetFleet = this.humanFleet;
+    } else if (targetPlayer === CONST.COMPUTER_PLAYER) {
+        targetGrid = this.computerBoard;
+        targetFleet = this.computerFleet;
+    } else {
+        // Should never be called
+        console.log("There was an error trying to find the correct player to target");
+    }
 
+    if (targetGrid.isDamagedShip(x, y)) {
+        return null;
+    } else if (targetGrid.isMiss(x, y)) {
+        return null;
+    } else if (targetGrid.isUndamagedShip(x, y)) {
+        // update the board/grid
+        targetGrid.updateCell(x, y, 'hit', targetPlayer);
+        // IMPORTANT: This function needs to be called _after_ updating the cell to a 'hit',
+        // because it overrides the CSS class to 'sunk' if we find that the ship was sunk
+        targetFleet.findShipByCoords(x, y).incrementDamage(); // increase the damage
+        this.checkIfWon();
+        return CONST.TYPE_HIT;
+    } else {
+        targetGrid.updateCell(x, y, 'miss', targetPlayer);
+        this.checkIfWon();
+        return CONST.TYPE_MISS;
+    }
+};
+// Initializes the Game. Also resets the game if previously initialized
+Game.prototype.init = function() {
+    this.humanBoard = new Board(Game.size);
+    this.computerBoard = new Board(Game.size);
+    this.humanFleet = new Fleet(this.humanBoard, CONST.HUMAN_PLAYER);
+    this.computerFleet = new Fleet(this.computerBoard, CONST.COMPUTER_PLAYER);
+
+    this.robot = new AI(this);
+    Game.stats = new Stats();
+
+    // Reset game variables
+    this.shotsTaken = 0;
+    this.readyToPlay = false;
+    this.placingOnBoard = false;
+    Game.placeShipDirection = 0;
+    Game.placeShipType = '';
+    Game.placeShipCoords = [];
+};
+// Debugging function used to place all ships and just start
+Game.prototype.placeRandomly = function(e){
+    e.target.removeEventListener(e.type, arguments.callee);
+    e.target.self.humanFleet.placeShipsRandomly();
+    e.target.self.readyToPlay = true;
+    document.getElementById('roster-sidebar').setAttribute('class', 'hidden');
+    this.setAttribute('class', 'hidden');
+};
+// Ends placing the current ship
+Game.prototype.endPlacing = function(shipType) {
+    document.getElementById(shipType).setAttribute('class', 'placed');
+
+    // Mark the ship as 'used'
+    Game.usedShips[CONST.AVAILABLE_SHIPS.indexOf(shipType)] = CONST.USED;
+
+    // Wipe out the variable when you're done with it
+    Game.placeShipDirection = null;
+    Game.placeShipType = '';
+    Game.placeShipCoords = [];
+};
+// Checks whether or not all ships are done placing
+// Returns boolean
+Game.prototype.areAllShipsPlaced = function() {
+    var playerRoster = document.querySelectorAll('.fleet-roster li');
+    for (var i = 0; i < playerRoster.length; i++) {
+        if (playerRoster[i].getAttribute('class') === 'placed') {
+            continue;
+        } else {
+            return false;
+        }
+    }
+    // Reset temporary variables
+    Game.placeShipDirection = 0;
+    Game.placeShipType = '';
+    Game.placeShipCoords = [];
+    return true;
+};
 
 //=================//
 //      Board      //
@@ -385,10 +532,26 @@ Ship.DIRECTION_HORIZONTAL = 1;
 // Constructor
 function AI(gameObject) {
     this.gameObject = gameObject;
-    this.virtualGrid = new Grid(Game.size);
+    this.virtualGrid = new Board(Game.size);
     this.virtualFleet = new Fleet(this.virtualGrid, CONST.VIRTUAL_PLAYER);
-
-    this.probGrid = []; // Probability Grid
-    this.initProbs();
-    this.updateProbs();
 }
+
+
+
+
+
+// Returns a random number between min (inclusive) and max (exclusive)
+function getRandom(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+// Toggles on or off DEBUG_MODE
+function setDebug(val) {
+    DEBUG_MODE = val;
+}
+
+
+
+// Start the game
+setDebug(true);
+var mainGame = new Game(10);
