@@ -73,7 +73,7 @@ Board.prototype.isDamagedShip = function(x, y) {
     return this.cells[x][y] === CONST.TYPE_HIT || this.cells[x][y] === CONST.TYPE_SUNK;
 };
 
-// Test Function
+// Print Function
 Board.prototype.printBoard = function() {
     for (var x = 0; x < this.size; x++) {
         var row = this.cells[x];
