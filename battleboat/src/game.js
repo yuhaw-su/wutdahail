@@ -567,6 +567,18 @@ function setDebug(val) {
 }
 
 
+// Test Functions
+
+function printBoard(){
+    for (var x = 0; x < this.size; x++) {
+        var row = [];
+        this.cells[x] = row;
+        for (var y = 0; y < this.size; y++) {
+            document.write(row[y]);
+        }
+        document.write("\n");
+    }
+}
 
 // Start the game
 setDebug(true);
