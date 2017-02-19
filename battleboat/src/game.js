@@ -40,6 +40,8 @@ function Game(size) {
     Game.size = size;
     this.shotsTaken = 0;
     this.init();
+    this.readyToPlay = false;
+    this.placingOnBoard = false;
 }
 Game.size = 10; // Default grid size is 10x10
 Game.gameOver = false;
@@ -69,10 +71,10 @@ Game.prototype.init = function() {
 // Checks if the game is won
 Game.prototype.checkIfWon = function() {
     if (this.computerFleet.allShipsSunk()) {
-        alert('Congratulations, you win!');
+        console.log('Congratulations, you win!');
         Game.gameOver = true;
     } else if (this.humanFleet.allShipsSunk()) {
-        alert('Yarr! The computer sank all your ships. Try again.');
+        console.log('Yarr! The computer sank all your ships. Try again.');
         Game.gameOver = true;
     }
 };
@@ -116,9 +118,9 @@ Game.prototype.shoot = function(x, y, targetPlayer) {
 };
 
 // Debugging function used to place all ships and just start
-Game.prototype.placeRandomly = function(e){
-    e.target.self.humanFleet.placeShipsRandomly();
-    e.target.self.readyToPlay = true;
+Game.prototype.placeRandomly = function(){
+    this.humanFleet.placeShipsRandomly();
+    this.readyToPlay = true;
 };
 // Ends placing the current ship
 Game.prototype.endPlacing = function(shipType) {
@@ -228,7 +230,7 @@ Board.prototype.isDamagedShip = function(x, y) {
 // Constructor
 function Fleet(playerGrid, player) {
     this.numShips = CONST.AVAILABLE_SHIPS.length;
-    this.playerGrid = playerGrid;
+    this.playerBoard = playerGrid;
     this.player = player;
     this.fleetRoster = [];
     this.populate();
@@ -239,7 +241,7 @@ Fleet.prototype.populate = function() {
     for (var i = 0; i < this.numShips; i++) {
         // loop over the ship types when numShips > Constants.AVAILABLE_SHIPS.length
         var j = i % CONST.AVAILABLE_SHIPS.length;
-        this.fleetRoster.push(new Ship(CONST.AVAILABLE_SHIPS[j], this.playerGrid, this.player));
+        this.fleetRoster.push(new Ship(CONST.AVAILABLE_SHIPS[j], this.playerBoard, this.player));
     }
 };
 // Places the ship and returns whether or not the placement was successful
@@ -255,7 +257,7 @@ Fleet.prototype.placeShip = function(x, y, direction, shipType) {
             shipCoords = this.fleetRoster[i].getAllShipCells();
 
             for (var j = 0; j < shipCoords.length; j++) {
-                this.playerGrid.updateCell(shipCoords[j].x, shipCoords[j].y, 'ship', this.player);
+                this.playerBoard.updateCell(shipCoords[j].x, shipCoords[j].y, 'ship', this.player);
             }
             return true;
         }
@@ -288,7 +290,7 @@ Fleet.prototype.placeShipsRandomly = function() {
         }
         if (this.player === CONST.HUMAN_PLAYER && Game.usedShips[i] !== CONST.USED) {
             for (var j = 0; j < shipCoords.length; j++) {
-                this.playerGrid.updateCell(shipCoords[j].x, shipCoords[j].y, 'ship', this.player);
+                this.playerBoard.updateCell(shipCoords[j].x, shipCoords[j].y, 'ship', this.player);
                 Game.usedShips[i] = CONST.USED;
             }
         }
@@ -352,7 +354,7 @@ Fleet.prototype.allShipsSunk = function() {
 function Ship(type, playerGrid, player) {
     this.damage = 0;
     this.type = type;
-    this.playerGrid = playerGrid;
+    this.playerBoard = playerGrid;
     this.player = player;
 
     switch (this.type) {
@@ -387,15 +389,15 @@ Ship.prototype.isLegal = function(x, y, direction) {
         // ...then check to make sure it doesn't collide with another ship
         for (var i = 0; i < this.shipLength; i++) {
             if (direction === Ship.DIRECTION_VERTICAL) {
-                if (this.playerGrid.cells[x + i][y] === CONST.TYPE_SHIP ||
-                    this.playerGrid.cells[x + i][y] === CONST.TYPE_MISS ||
-                    this.playerGrid.cells[x + i][y] === CONST.TYPE_SUNK) {
+                if (this.playerBoard.cells[x + i][y] === CONST.TYPE_SHIP ||
+                    this.playerBoard.cells[x + i][y] === CONST.TYPE_MISS ||
+                    this.playerBoard.cells[x + i][y] === CONST.TYPE_SUNK) {
                     return false;
                 }
             } else {
-                if (this.playerGrid.cells[x][y + i] === CONST.TYPE_SHIP ||
-                    this.playerGrid.cells[x][y + i] === CONST.TYPE_MISS ||
-                    this.playerGrid.cells[x][y + i] === CONST.TYPE_SUNK) {
+                if (this.playerBoard.cells[x][y + i] === CONST.TYPE_SHIP ||
+                    this.playerBoard.cells[x][y + i] === CONST.TYPE_MISS ||
+                    this.playerBoard.cells[x][y + i] === CONST.TYPE_SUNK) {
                     return false;
                 }
             }
@@ -436,7 +438,7 @@ Ship.prototype.sinkShip = function(virtual) {
     if (!virtual) {
         var allCells = this.getAllShipCells();
         for (var i = 0; i < this.shipLength; i++) {
-            this.playerGrid.updateCell(allCells[i].x, allCells[i].y, 'sunk', this.player);
+            this.playerBoard.updateCell(allCells[i].x, allCells[i].y, 'sunk', this.player);
         }
     }
 };
@@ -475,9 +477,9 @@ Ship.prototype.create = function(x, y, direction, virtual) {
     if (!virtual) {
         for (var i = 0; i < this.shipLength; i++) {
             if (this.direction === Ship.DIRECTION_VERTICAL) {
-                this.playerGrid.cells[x + i][y] = CONST.TYPE_SHIP;
+                this.playerBoard.cells[x + i][y] = CONST.TYPE_SHIP;
             } else {
-                this.playerGrid.cells[x][y + i] = CONST.TYPE_SHIP;
+                this.playerBoard.cells[x][y + i] = CONST.TYPE_SHIP;
             }
         }
     }
@@ -569,17 +571,31 @@ function setDebug(val) {
 
 // Test Functions
 
-function printBoard(){
-    for (var x = 0; x < this.size; x++) {
-        var row = [];
-        this.cells[x] = row;
-        for (var y = 0; y < this.size; y++) {
-            document.write(row[y]);
-        }
-        document.write("\n");
+Board.prototype.printBoard = function(){
+    for (var i = 0; i < this.size; i++) {
+        console.log(this.cells[i]);
     }
-}
+};
 
 // Start the game
 setDebug(true);
 var mainGame = new Game(10);
+
+mainGame.humanBoard.printBoard();
+console.log("\n");
+
+mainGame.placeRandomly();
+mainGame.humanBoard.printBoard();
+console.log("\n");
+
+mainGame.shoot(0,0, CONST.HUMAN_PLAYER);
+mainGame.humanBoard.printBoard();
+console.log("\n");
+
+for (var i = 0; i < 10; i++) {
+    for(var j=0; j<10; j++) {
+        mainGame.shoot(i, j, CONST.HUMAN_PLAYER);
+    }
+}
+mainGame.humanBoard.printBoard();
+console.log("\n");
