@@ -1,137 +1,226 @@
-/* eslint-disable  func-names */
-/* eslint quote-props: ["error", "consistent"]*/
-/**
- * This sample demonstrates a sample skill built with Amazon Alexa Skills nodejs
- * skill development kit.
- * This sample supports multiple languages (en-US, en-GB, de-GB).
- * The Intent Schema, Custom Slot and Sample Utterances for this skill, as well
- * as testing instructions are located at https://github.com/alexa/skill-sample-nodejs-howto
- **/
-
 'use strict';
+var Alexa = require("alexa-sdk");
+var helper = require('./helper');
+var appId = 'amzn1.ask.skill.f609e63d-d852-4a6b-926b-9993ba85db53'; //'amzn1.echo-sdk-ams.app.your-skill-id';
 
-const Alexa = require('alexa-sdk');
-const recipes = require('./recipes');
+exports.handler = function(event, context, callback) {
+    var alexa = Alexa.handler(event, context);
+    alexa.appId = appId;
+    // alexa.dynamoDBTableName = 'highLowGuessUsers';
+    alexa.registerHandlers(newSessionHandlers, guessModeHandlers, startGameHandlers, placeBoatModeHandlers, guessAttemptHandlers);
+    alexa.execute();
+};
 
-const APP_ID = undefined; // TODO replace with your app ID (OPTIONAL).
+var states = {
+    GUESSMODE: '_GUESSMODE', // User is trying to guess the number.
+    PLACEMODE: '_PLACEMODE',
+    STARTMODE: '_STARTMODE' // Prompt the user to start or restart the game.
+};
 
-const handlers = {
-    'NewSession': function () {
-        this.attributes.speechOutput = this.t('WELCOME_MESSAGE', this.t('SKILL_NAME'));
-        // If the user either does not reply to the welcome message or says something that is not
-        // understood, they will be prompted again with this text.
-        this.attributes.repromptSpeech = this.t('WELCOME_REPROMT');
-        this.emit(':ask', this.attributes.speechOutput, this.attributes.repromptSpeech);
-    },
-    'RecipeIntent': function () {
-        const itemSlot = this.event.request.intent.slots.Item;
-        let itemName;
-        if (itemSlot && itemSlot.value) {
-            itemName = itemSlot.value.toLowerCase();
+var newSessionHandlers = {
+    'NewSession': function() {
+        if(Object.keys(this.attributes).length === 0) {
+            this.attributes.endedSessionCount = 0;
+            this.attributes.gamesPlayed = 0;
         }
-
-        const cardTitle = this.t('DISPLAY_CARD_TITLE', this.t('SKILL_NAME'), itemName);
-        const myRecipes = this.t('RECIPES');
-        const recipe = myRecipes[itemName];
-
-        if (recipe) {
-            this.attributes.speechOutput = recipe;
-            this.attributes.repromptSpeech = this.t('RECIPE_REPEAT_MESSAGE');
-            this.emit(':askWithCard', recipe, this.attributes.repromptSpeech, cardTitle, recipe);
-        } else {
-            let speechOutput = this.t('RECIPE_NOT_FOUND_MESSAGE');
-            const repromptSpeech = this.t('RECIPE_NOT_FOUND_REPROMPT');
-            if (itemName) {
-                speechOutput += this.t('RECIPE_NOT_FOUND_WITH_ITEM_NAME', itemName);
-            } else {
-                speechOutput += this.t('RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME');
-            }
-            speechOutput += repromptSpeech;
-
-            this.attributes.speechOutput = speechOutput;
-            this.attributes.repromptSpeech = repromptSpeech;
-
-            this.emit(':ask', speechOutput, repromptSpeech);
-        }
+        this.handler.state = states.STARTMODE;
+        this.emit(':ask', 'Welcome to battle boat, a one-hundred percent original, one-of-a-kind game. You have played '
+            + this.attributes.gamesPlayed.toString() + ' times. would you like to play?',
+            'Say yes to start the game or no to quit.');
     },
-    'AMAZON.HelpIntent': function () {
-        this.attributes.speechOutput = this.t('HELP_MESSAGE');
-        this.attributes.repromptSpeech = this.t('HELP_REPROMT');
-        this.emit(':ask', this.attributes.speechOutput, this.attributes.repromptSpeech);
+    "AMAZON.StopIntent": function() {
+      this.emit(':tell', "Goodbye!");
     },
-    'AMAZON.RepeatIntent': function () {
-        this.emit(':ask', this.attributes.speechOutput, this.attributes.repromptSpeech);
-    },
-    'AMAZON.StopIntent': function () {
-        this.emit('SessionEndedRequest');
-    },
-    'AMAZON.CancelIntent': function () {
-        this.emit('SessionEndedRequest');
+    "AMAZON.CancelIntent": function() {
+      this.emit(':tell', "Goodbye!");
     },
     'SessionEndedRequest': function () {
-        this.emit(':tell', this.t('STOP_MESSAGE'));
-    },
+        console.log('session ended!');
+        //this.attributes['endedSessionCount'] += 1;
+        this.emit(":tell", "Goodbye!");
+    }
 };
 
-const languageStrings = {
-    'en-GB': {
-        translation: {
-            RECIPES: recipes.RECIPE_EN_GB,
-            SKILL_NAME: 'British Minecraft Helper',
-            WELCOME_MESSAGE: "Welcome to %s. You can ask a question like, what\'s the recipe for a chest? ... Now, what can I help you with.",
-            WELCOME_REPROMT: 'For instructions on what you can say, please say help me.',
-            DISPLAY_CARD_TITLE: '%s  - Recipe for %s.',
-            HELP_MESSAGE: "You can ask questions such as, what\'s the recipe, or, you can say exit...Now, what can I help you with?",
-            HELP_REPROMT: "You can say things like, what\'s the recipe, or you can say exit...Now, what can I help you with?",
-            STOP_MESSAGE: 'Goodbye!',
-            RECIPE_REPEAT_MESSAGE: 'Try saying repeat.',
-            RECIPE_NOT_FOUND_MESSAGE: "I\'m sorry, I currently do not know ",
-            RECIPE_NOT_FOUND_WITH_ITEM_NAME: 'the recipe for %s. ',
-            RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME: 'that recipe. ',
-            RECIPE_NOT_FOUND_REPROMPT: 'What else can I help with?',
-        },
+var startGameHandlers = Alexa.CreateStateHandler(states.STARTMODE, {
+    'NewSession': function () {
+        this.emit('NewSession'); // Uses the handler in newSessionHandlers
     },
-    'en-US': {
-        translation: {
-            RECIPES: recipes.RECIPE_EN_US,
-            SKILL_NAME: 'American Minecraft Helper',
-            WELCOME_MESSAGE: "Welcome to %s. You can ask a question like, what\'s the recipe for a chest? ... Now, what can I help you with.",
-            WELCOME_REPROMT: 'For instructions on what you can say, please say help me.',
-            DISPLAY_CARD_TITLE: '%s  - Recipe for %s.',
-            HELP_MESSAGE: "You can ask questions such as, what\'s the recipe, or, you can say exit...Now, what can I help you with?",
-            HELP_REPROMT: "You can say things like, what\'s the recipe, or you can say exit...Now, what can I help you with?",
-            STOP_MESSAGE: 'Goodbye!',
-            RECIPE_REPEAT_MESSAGE: 'Try saying repeat.',
-            RECIPE_NOT_FOUND_MESSAGE: "I\'m sorry, I currently do not know ",
-            RECIPE_NOT_FOUND_WITH_ITEM_NAME: 'the recipe for %s. ',
-            RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME: 'that recipe. ',
-            RECIPE_NOT_FOUND_REPROMPT: 'What else can I help with?',
-        },
+    'AMAZON.HelpIntent': function() {
+        var message = 'First, you will place your boats one at a time. Then, you and I will take turns guessing where each ' +
+            'others ships are located until one of us sinks all of the others ships. That person will be declared da weiner.';
+        this.emit(':ask', message, message);
     },
-    'de-DE': {
-        translation: {
-            RECIPES: recipes.RECIPE_DE_DE,
-            SKILL_NAME: 'Assistent für Minecraft in Deutsch',
-            WELCOME_MESSAGE: 'Willkommen bei %s. Du kannst beispielsweise die Frage stellen: Welche Rezepte gibt es für eine Truhe? ... Nun, womit kann ich dir helfen?',
-            WELCOME_REPROMT: 'Wenn du wissen möchtest, was du sagen kannst, sag einfach „Hilf mir“.',
-            DISPLAY_CARD_TITLE: '%s - Rezept für %s.',
-            HELP_MESSAGE: 'Du kannst beispielsweise Fragen stellen wie „Wie geht das Rezept für“ oder du kannst „Beenden“ sagen ... Wie kann ich dir helfen?',
-            HELP_REPROMT: 'Du kannst beispielsweise Sachen sagen wie „Wie geht das Rezept für“ oder du kannst „Beenden“ sagen ... Wie kann ich dir helfen?',
-            STOP_MESSAGE: 'Auf Wiedersehen!',
-            RECIPE_REPEAT_MESSAGE: 'Sage einfach „Wiederholen“.',
-            RECIPE_NOT_FOUND_MESSAGE: 'Tut mir leid, ich kenne derzeit ',
-            RECIPE_NOT_FOUND_WITH_ITEM_NAME: 'das Rezept für %s nicht. ',
-            RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME: 'dieses Rezept nicht. ',
-            RECIPE_NOT_FOUND_REPROMPT: 'Womit kann ich dir sonst helfen?',
-        },
+    'AMAZON.YesIntent': function() {
+        this.attributes.guessNumber = Math.floor(Math.random() * 100);
+        this.handler.state = states.PLACEMODE;
+        var repeat = 'Would you like me to randomly assign your boats locations? Say yes or no.';
+        this.emit(':ask', 'Great! Lets begin by placing your boats. ' + repeat, repeat);
     },
-};
+    'AMAZON.NoIntent': function() {
+        console.log("NOINTENT");
+        this.emit(':tell', 'Ok, see you next time!');
+    },
+    "AMAZON.StopIntent": function() {
+      console.log("STOPINTENT");
+      this.emit(':tell', "Goodbye!");
+    },
+    "AMAZON.CancelIntent": function() {
+      console.log("CANCELINTENT");
+      this.emit(':tell', "Goodbye!");
+    },
+    'SessionEndedRequest': function () {
+        console.log("SESSIONENDEDREQUEST");
+        //this.attributes['endedSessionCount'] += 1;
+        this.emit(':tell', "Goodbye!");
+    },
+    'Unhandled': function() {
+        console.log("UNHANDLED");
+        var message = 'Say yes to continue, or no to end the game.';
+        this.emit(':ask', message, message);
+    }
+});
 
-exports.handler = (event, context) => {
-    const alexa = Alexa.handler(event, context);
-    alexa.APP_ID = APP_ID;
-    // To enable string internationalization (i18n) features, set a resources object.
-    alexa.resources = languageStrings;
-    alexa.registerHandlers(handlers);
-    alexa.execute();
+var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
+  'NewSession': function () {
+      this.handler.state = '';
+      this.emitWithState('NewSession'); // Equivalent to the Start Mode NewSession handler
+  },
+  'PlaceBoatIntent': function () {
+      var startNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.startNumber.value);
+      var startLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.startLetter.value);
+      var endNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.endNumber.value);
+      var endLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.endLetter.value);
+      this.emit(':ask', startLetter + " " + startNumber + " to " + endLetter + " " + endNumber, 'hi');
+  },
+  'AMAZON.HelpIntent': function() {
+      var message = 'First, you will place your boats one at a time. Then, you and I will take turns guessing where each ' +
+          'others ships are located until one of us sinks all of the others ships. That person will be declared da weiner.';
+      this.emit(':ask', message, message);
+  },
+  'AMAZON.YesIntent': function() {
+      this.handler.state = states.GUESSMODE;
+      this.attributes.myBoard = helper.initializeMap();
+      this.attributes.myShipInfo = helper.initializeShipInfo();
+      this.attributes.aiBoard = helper.initializeMap();
+      this.attributes.aiShipInfo = helper.initializeShipInfo();
+      helper.placeShipsRandomly(this.attributes.myBoard, this.attributes.myShipInfo);
+      helper.placeShipsRandomly(this.attributes.aiBoard, this.attributes.aiShipInfo);
+      var repeat = 'Make a guess as to where my boats are, for example, a. five';
+      var cardTitle = "Your Board";
+      var boardDisplay = helper.createBoardDisplayString(this.attributes.aiBoard);
+      this.emit(':askWithCard', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + repeat, repeat, cardTitle, boardDisplay);
+  },
+  'AMAZON.NoIntent': function() {
+      console.log("NOINTENT");
+      this.emit(':tell', 'Ok, see you next time!');
+  },
+  "AMAZON.StopIntent": function() {
+    console.log("STOPINTENT");
+    this.emit(':tell', "Goodbye!");
+  },
+  "AMAZON.CancelIntent": function() {
+    console.log("CANCELINTENT");
+    this.emit(':tell', "Goodbye!");
+  },
+  'SessionEndedRequest': function () {
+      console.log("SESSIONENDEDREQUEST");
+      //this.attributes['endedSessionCount'] += 1;
+      this.emit(':tell', "Goodbye!");
+  },
+  'Unhandled': function() {
+      console.log("UNHANDLED");
+      var message = 'Say yes to continue, or no to end the game.';
+      this.emit(':ask', message, message);
+  }
+});
+
+var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
+    'NewSession': function () {
+        this.handler.state = '';
+        this.emitWithState('NewSession'); // Equivalent to the Start Mode NewSession handler
+    },
+
+    'GuessIntent': function () {
+      var x = helper.moveNumberToXCoordinate(this.event.request.intent.slots.moveNumber.value);
+      var y = helper.moveLetterToYCoordinate(this.event.request.intent.slots.moveLetter.value);
+      var aiBoardValue = this.attributes.aiBoard[x][y];
+      var speechOutput = '';
+      var response = 'Guess another spot, for example, a. five';
+      switch (aiBoardValue)
+      {
+        case 0:
+          speechOutput = 'Aww, you missed.';
+          this.attributes.aiBoard[x][y] = 2;
+          break;
+        case 1:
+          sppechOutput = 'Hit!';
+          this.attributes.aiBoard[x][y] = 3;
+          break;
+        case 2:
+        case 3:
+          speechOutput = 'You have already guessed that spot.';
+          break;
+        default:
+          speechOutput = 'Oh no! The skill broke!';
+          this.attributes.aiBoard[x][y] = 2;
+      }
+      this.emit(':ask', 'GuessIntent received');
+    },
+    'NumberGuessIntent': function() {
+        var guessNum = parseInt(this.event.request.intent.slots.number.value);
+        var targetNum = this.attributes.guessNumber;
+        console.log('user guessed: ' + guessNum);
+
+        if(guessNum > targetNum){
+            this.emit('TooHigh', guessNum);
+        } else if( guessNum < targetNum){
+            this.emit('TooLow', guessNum);
+        } else if (guessNum === targetNum){
+            // With a callback, use the arrow function to preserve the correct 'this' context
+            this.emit('JustRight', () => {
+                this.emit(':ask', guessNum.toString() + 'is correct! Would you like to play a new game?',
+                'Say yes to start a new game, or no to end the game.');
+            });
+        } else {
+            this.emit('NotANum');
+        }
+    },
+    'AMAZON.HelpIntent': function() {
+        this.emit(':ask', 'I am thinking of a number between zero and one hundred, try to guess and I will tell you' +
+            ' if it is higher or lower.', 'Try saying a number.');
+    },
+    "AMAZON.StopIntent": function() {
+        console.log("STOPINTENT");
+      this.emit(':tell', "Goodbye!");
+    },
+    "AMAZON.CancelIntent": function() {
+        console.log("CANCELINTENT");
+    },
+    'SessionEndedRequest': function () {
+        console.log("SESSIONENDEDREQUEST");
+        this.attributes.endedSessionCount += 1;
+        this.emit(':tell', "Goodbye!");
+    },
+    'Unhandled': function() {
+        console.log("UNHANDLED");
+        this.emit(':ask', 'Sorry, I didn\'t get that. Try saying a number.', 'Try saying a number.');
+    }
+});
+
+// These handlers are not bound to a state
+var guessAttemptHandlers = {
+    'TooHigh': function(val) {
+        this.emit(':ask', val.toString() + ' is too high.', 'Try saying a smaller number.');
+    },
+    'TooLow': function(val) {
+        this.emit(':ask', val.toString() + ' is too low.', 'Try saying a larger number.');
+    },
+    'JustRight': function(callback) {
+        this.handler.state = states.STARTMODE;
+        this.attributes.gamesPlayed++;
+        callback();
+    },
+    'NotANum': function() {
+        this.emit(':ask', 'Sorry, I didn\'t get that. Try saying a number.', 'Try saying a number.');
+    }
 };
