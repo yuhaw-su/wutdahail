@@ -2,7 +2,9 @@
  * Created by Kevin on 2/18/2017.
  */
 
-// Global Constants
+//=================//
+//    Constants    //
+//=================//
 var CONST = {};
 CONST.AVAILABLE_SHIPS = ['carrier', 'battleship', 'destroyer', 'submarine', 'patrolboat'];
 
@@ -42,10 +44,10 @@ function Game(size) {
     this.init();
     this.readyToPlay = false;
     this.placingOnBoard = false;
-}
-Game.size = 10; // Default grid size is 10x10
-Game.gameOver = false;
 
+    Game.size = 10; // Default grid size is 10x10
+    Game.gameOver = false;
+}
 // Initializes the Game. Also resets the game if previously initialized
 Game.prototype.init = function() {
     // Create both boards
@@ -67,7 +69,6 @@ Game.prototype.init = function() {
     Game.placeShipType = '';
     Game.placeShipCoords = [];
 };
-
 // Checks if the game is won
 Game.prototype.checkIfWon = function() {
     if (this.computerFleet.allShipsSunk()) {
@@ -116,7 +117,6 @@ Game.prototype.shoot = function(x, y, targetPlayer) {
         return CONST.TYPE_MISS;
     }
 };
-
 // Debugging function used to place all ships and just start
 Game.prototype.placeRandomly = function(){
     this.humanFleet.placeShipsRandomly();
@@ -152,319 +152,21 @@ Game.prototype.areAllShipsPlaced = function() {
     return true;
 };
 
-//=================//
-//      Board      //
-//=================//
-// Constructor
-function Board(size){
-    this.size = size;
-    this.cells = [];
-    this.init();
-}
-
-// Initialize all cells in the board
-Board.prototype.init = function() {
-    for (var x = 0; x < this.size; x++) {
-        var row = [];
-        this.cells[x] = row;
-        for (var y = 0; y < this.size; y++) {
-            row.push(CONST.TYPE_EMPTY);
-        }
-    }
-};
-// Updates the cell's CSS class based on the type passed in
-Board.prototype.updateCell = function(x, y, type, targetPlayer) {
-    var player;
-    if (targetPlayer === CONST.HUMAN_PLAYER) {
-        player = 'human-player';
-    } else if (targetPlayer === CONST.COMPUTER_PLAYER) {
-        player = 'computer-player';
-    } else {
-        // Should never be called
-        console.log("There was an error trying to find the correct player's board");
-    }
-
-    switch (type) {
-        case CONST.CSS_TYPE_EMPTY:
-            this.cells[x][y] = CONST.TYPE_EMPTY;
-            break;
-        case CONST.CSS_TYPE_SHIP:
-            this.cells[x][y] = CONST.TYPE_SHIP;
-            break;
-        case CONST.CSS_TYPE_MISS:
-            this.cells[x][y] = CONST.TYPE_MISS;
-            break;
-        case CONST.CSS_TYPE_HIT:
-            this.cells[x][y] = CONST.TYPE_HIT;
-            break;
-        case CONST.CSS_TYPE_SUNK:
-            this.cells[x][y] = CONST.TYPE_SUNK;
-            break;
-        default:
-            this.cells[x][y] = CONST.TYPE_EMPTY;
-            break;
-    }
-};
-// Checks to see if a cell contains an undamaged ship
-// Returns boolean
-Board.prototype.isUndamagedShip = function(x, y) {
-    return this.cells[x][y] === CONST.TYPE_SHIP;
-};
-// Checks to see if the shot was missed. This is equivalent
-// to checking if a cell contains a cannonball
-// Returns boolean
-Board.prototype.isMiss = function(x, y) {
-    return this.cells[x][y] === CONST.TYPE_MISS;
-};
-// Checks to see if a cell contains a damaged ship,
-// either hit or sunk.
-// Returns boolean
-Board.prototype.isDamagedShip = function(x, y) {
-    return this.cells[x][y] === CONST.TYPE_HIT || this.cells[x][y] === CONST.TYPE_SUNK;
-};
-
-
-
-
-//=================//
-//      Ships      //
-//=================//
-// Constructor
-function Ship(type, playerGrid, player) {
-    this.damage = 0;
-    this.type = type;
-    this.playerBoard = playerGrid;
-    this.player = player;
-
-    switch (this.type) {
-        case CONST.AVAILABLE_SHIPS[0]:
-            this.shipLength = 5;
-            break;
-        case CONST.AVAILABLE_SHIPS[1]:
-            this.shipLength = 4;
-            break;
-        case CONST.AVAILABLE_SHIPS[2]:
-            this.shipLength = 3;
-            break;
-        case CONST.AVAILABLE_SHIPS[3]:
-            this.shipLength = 3;
-            break;
-        case CONST.AVAILABLE_SHIPS[4]:
-            this.shipLength = 2;
-            break;
-        default:
-            this.shipLength = 3;
-            break;
-    }
-    this.maxDamage = this.shipLength;
-    this.sunk = false;
-}
-
-// Checks to see if the placement of a ship is legal
-// Returns boolean
-Ship.prototype.isLegal = function(x, y, direction) {
-    // first, check if the ship is within the grid...
-    if (this.withinBounds(x, y, direction)) {
-        // ...then check to make sure it doesn't collide with another ship
-        for (var i = 0; i < this.shipLength; i++) {
-            if (direction === Ship.DIRECTION_VERTICAL) {
-                if (this.playerBoard.cells[x + i][y] === CONST.TYPE_SHIP ||
-                    this.playerBoard.cells[x + i][y] === CONST.TYPE_MISS ||
-                    this.playerBoard.cells[x + i][y] === CONST.TYPE_SUNK) {
-                    return false;
-                }
-            } else {
-                if (this.playerBoard.cells[x][y + i] === CONST.TYPE_SHIP ||
-                    this.playerBoard.cells[x][y + i] === CONST.TYPE_MISS ||
-                    this.playerBoard.cells[x][y + i] === CONST.TYPE_SUNK) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    } else {
-        return false;
-    }
-};
-// Checks to see if the ship is within bounds of the grid
-// Returns boolean
-Ship.prototype.withinBounds = function(x, y, direction) {
-    if (direction === Ship.DIRECTION_VERTICAL) {
-        return x + this.shipLength <= Game.size;
-    } else {
-        return y + this.shipLength <= Game.size;
-    }
-};
-// Increments the damage counter of a ship
-// Returns Ship
-Ship.prototype.incrementDamage = function() {
-    this.damage++;
-    if (this.isSunk()) {
-        this.sinkShip(false); // Sinks the ship
-    }
-};
-// Checks to see if the ship is sunk
-// Returns boolean
-Ship.prototype.isSunk = function() {
-    return this.damage >= this.maxDamage;
-};
-// Sinks the ship
-Ship.prototype.sinkShip = function(virtual) {
-    this.damage = this.maxDamage; // Force the damage to exceed max damage
-    this.sunk = true;
-
-    // Make the CSS class sunk, but only if the ship is not virtual
-    if (!virtual) {
-        var allCells = this.getAllShipCells();
-        for (var i = 0; i < this.shipLength; i++) {
-            this.playerBoard.updateCell(allCells[i].x, allCells[i].y, 'sunk', this.player);
-        }
-    }
-};
-/**
- * Gets all the ship cells
- *
- * Returns an array with all (x, y) coordinates of the ship:
- * e.g.
- * [
- *	{'x':2, 'y':2},
- *	{'x':3, 'y':2},
- *	{'x':4, 'y':2}
- * ]
- */
-Ship.prototype.getAllShipCells = function() {
-    var resultObject = [];
-    for (var i = 0; i < this.shipLength; i++) {
-        if (this.direction === Ship.DIRECTION_VERTICAL) {
-            resultObject[i] = {'x': this.xPosition + i, 'y': this.yPosition};
-        } else {
-            resultObject[i] = {'x': this.xPosition, 'y': this.yPosition + i};
-        }
-    }
-    return resultObject;
-};
-// Initializes a ship with the given coordinates and direction (bearing).
-// If the ship is declared "virtual", then the ship gets initialized with
-// its coordinates but DOESN'T get placed on the grid.
-Ship.prototype.create = function(x, y, direction, virtual) {
-    // This function assumes that you've already checked that the placement is legal
-    this.xPosition = x;
-    this.yPosition = y;
-    this.direction = direction;
-
-    // If the ship is virtual, don't add it to the grid.
-    if (!virtual) {
-        for (var i = 0; i < this.shipLength; i++) {
-            if (this.direction === Ship.DIRECTION_VERTICAL) {
-                this.playerBoard.cells[x + i][y] = CONST.TYPE_SHIP;
-            } else {
-                this.playerBoard.cells[x][y + i] = CONST.TYPE_SHIP;
-            }
-        }
-    }
-
-};
-// direction === 0 when the ship is facing north/south
-// direction === 1 when the ship is facing east/west
-Ship.DIRECTION_VERTICAL = 0;
-Ship.DIRECTION_HORIZONTAL = 1;
-
-
-//=================//
-//      AI         //
-//=================//
-// Randomly guess
-var HUNT_MODE = 0;
-// Search adjacent cells
-var TARGET_MODE = 1;
-
-// Constructor
-function AI(gameObject) {
-    this.gameObject = gameObject;
-    this.virtualGrid = new Board(Game.size);
-    this.virtualFleet = new Fleet(this.virtualGrid, CONST.VIRTUAL_PLAYER);
-    this.mode = HUNT_MODE;
-}
-
-AI.prototype.shoot = function() {
-
-    if(this.mode === HUNT_MODE){
-        var result = this.randomlyShoot();
-    }
-    else if(this.mode === TARGET_MODE){
-
-    }
-};
-
-AI.prototype.randomlyShoot = function() {
-    var x = getRandom(0,9);
-    var y = getRandom(0,9);
-    var result = this.gameObject.shoot(x, y, CONST.HUMAN_PLAYER);
-
-    // If the game ends, the next lines need to be skipped.
-    if (Game.gameOver) {
-        Game.gameOver = false;
-        return;
-    }
-
-    this.virtualGrid.cells[x][y] = result;
-
-    // If you hit a ship, check to make sure if you've sunk it.
-    if (result === CONST.TYPE_HIT) {
-        var humanShip = this.findHumanShip(x, y);
-        if (humanShip.isSunk()) {
-            // Remove any ships from the roster that have been sunk
-            var shipTypes = [];
-            for (var k = 0; k < this.virtualFleet.fleetRoster.length; k++) {
-                shipTypes.push(this.virtualFleet.fleetRoster[k].type);
-            }
-            var index = shipTypes.indexOf(humanShip.type);
-            this.virtualFleet.fleetRoster.splice(index, 1);
-
-            // Update the virtual grid with the sunk ship's cells
-            var shipCells = humanShip.getAllShipCells();
-            for (var _i = 0; _i < shipCells.length; _i++) {
-                this.virtualGrid.cells[shipCells[_i].x][shipCells[_i].y] = CONST.TYPE_SUNK;
-            }
-        }
-    }
-};
-
-// Finds a human ship by coordinates
-// Returns Ship
-AI.prototype.findHumanShip = function(x, y) {
-    return this.gameObject.humanFleet.findShipByCoords(x, y);
-};
-
-
 // Returns a random number between min (inclusive) and max (exclusive)
 function getRandom(min, max) {
     return Math.random() * (max - min) + min;
 }
-
 // Toggles on or off DEBUG_MODE
 function setDebug(val) {
     DEBUG_MODE = val;
 }
 
 
-// Test Functions
-
-Board.prototype.printBoard = function() {
-    for (var x = 0; x < this.size; x++) {
-        var row = this.cells[x];
-
-        for (var y = 0; y < this.size; y++) {
-            document.write(row[y] + " ");
-
-        }
-
-        document.write("<br />");
-    }
-}
-
+//=================//
+//      Tests      //
+//=================//
 // Start the game
-setDebug(true);
+setDebug(false);
 var mainGame = new Game(10);
 
 mainGame.humanBoard.printBoard();
