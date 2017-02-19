@@ -1,17 +1,72 @@
 'use strict';
 
-function isLegalPlacement (map, startX, startY, direction, shipLength) {
-  if ((direction == 0 && (startY+shipLength) >= 10) || (direction == 1 && (startX+shipLength) >= 10))
+var ShootingCodes = {
+  ERROR : -1,
+  BOAT_ZERO_DOWN : 0,
+  BOAT_ONE_DOWN : 1,
+  BOAT_TWO_DOWN : 2,
+  BOAT_THREE_DOWN : 3,
+  BOAT_FOUR_DOWN : 4,
+  MISS : 5,
+  HIT : 6,
+  ALREADY_GUESSED : 7,
+  I_WON : 8,
+  AI_WON : 9
+};
+
+var SpaceCodes = {
+  ERROR : -1,
+  UG_MISS : 0,
+  UG_HIT : 1,
+  G_MISS : 2,
+  G_HIT : 3
+};
+
+var DirectionCodes = {
+  RIGHT : 0,
+  DOWN : 1
+};
+
+function isLegalPlacement (map, startX, startY, direction, shipLength)
+{
+  if ((direction == DirectionCodes.DOWN && (startY+shipLength) >= 10) || (direction == DirectionCodes.RIGHT && (startX+shipLength) >= 10))
     return false;
   for (var i = 0; i < shipLength; i++)
   {
-    if (direction == 0 && map[startX][startY+i] == 1)
+    if (direction == DirectionCodes.DOWN && map[startY+i][startX] == 1)
       return false;
-    else if (map[startX+i][startY] == 1)
+    else if (map[startY][startX+i] == 1)
       return false;
   }
   return true;
-};
+}
+
+function determineWhichBoatWasHit (x, y, hitPlayer)
+{
+  for (var i = 0; i < hitPlayer.shipInfo.length; i++)
+  {
+    var boatX = hitPlayer.shipInfo[i].startX;
+    var boatY = hitPlayer.shipInfo[i].startY;
+    for (var j = 0; j < hitPlayer.shipInfo[i].size; j++)
+    {
+      if (hitPlayer.shipInfo[i].direction == DirectionCodes.RIGHT && boatX+j == x && boatY == y)
+        return i;
+      else if (hitPlayer.shipInfo[i].direction == DirectionCodes.DOWN && boatX == x && boatY+j == y)
+        return i;
+    }
+  }
+  return -1;
+}
+
+function checkIfGameOver (otherPlayer)
+{
+  for (var i = 0; i < otherPlayer.shipInfo.length; i++)
+  {
+    if (otherPlayer.shipInfo[i].life > 0)
+      return false;
+  }
+  return true;
+}
 
 var helper = (function () {
   return {
@@ -91,19 +146,6 @@ var helper = (function () {
       return x + 1;
     },
 
-    isLegalPlacement : function (map, startX, startY, direction, shipLength) {
-      if ((direction == 0 && (startY+shipLength) >= 10) || (direction == 1 && (startX+shipLength) >= 10))
-        return false;
-      for (var i = 0; i < shipLength; i++)
-      {
-        if (direction == 0 && map[startX][startY+i] == 1)
-          return false;
-        else if (map[startX+i][startY] == 1)
-          return false;
-      }
-      return true;
-    },
-
     placeShipsRandomly : function(map, shipInfo) {
     	for (var i = 0; i < shipInfo.length; i++)
       {
@@ -112,7 +154,7 @@ var helper = (function () {
         {
     			var randomX = Math.floor(10*Math.random());
     			var randomY = Math.floor(10*Math.random());
-    			var randomDirection = Math.floor(2*Math.random());
+    			var randomDirection = Math.floor(2*Math.random()) == 0 ? DirectionCodes.RIGHT : DirectionCodes.DOWN;
     			if (isLegalPlacement(map, randomX, randomY, randomDirection, shipInfo[i].size))
           {
             shipInfo[i].startX = randomX;
@@ -120,13 +162,13 @@ var helper = (function () {
             shipInfo[i].direction = randomDirection;
     				for (var j = 0; j < shipInfo[i].size; j++)
             {
-              if (randomDirection == 0) //horizontal
+              if (randomDirection == DirectionCodes.RIGHT) //horizontal
               {
-                map[randomX][randomY+j] = 1;
+                map[randomX+j][randomY] = 1;
               }
               else
               {
-                map[randomX+j][randomY] = 1;
+                map[randomX][randomY+j] = 1;
               }
             }
     				illegalPlacement = false;
@@ -152,7 +194,7 @@ var helper = (function () {
 
     initializeShipInfo : function () {
       var shipInfo = [];
-      var names = ['big big boat', 'big boat', 'boaty McBoat face', 'boat', 'a small yet strong boat'];
+      var names = ['big big boat', 'big boat', 'boaty McBoat face', 'boat', 'baby boat'];
       var sizes = [5, 4, 3, 3, 2];
       for (var i = 0; i < names.length; i++)
       {
@@ -161,10 +203,46 @@ var helper = (function () {
           size : sizes[i],
           startX : -1,
           startY : -1,
-          direction : -1
+          direction : -1,
+          life : sizes[i]
         });
       }
       return shipInfo;
+    },
+
+    shoot : function (x, y, targetPlayer) {
+        // If they try to shoot somewhere they have already hit a ship
+        switch (targetPlayer.board[x][y])
+        {
+          case SpaceCodes.UG_MISS:
+            targetPlayer.board[x][y] = 2;
+            return ShootingCodes.MISS;
+          case SpaceCodes.UG_HIT:
+            targetPlayer.board[x][y] = 3;
+            var hitBoatIndex = determineWhichBoatWasHit(x, y, targetPlayer);
+            console.log(hitBoatIndex);
+            targetPlayer.shipInfo[hitBoatIndex].life = targetPlayer.shipInfo[hitBoatIndex].life - 1;
+            if (targetPlayer.shipInfo[hitBoatIndex].life == 0)
+            {
+              if (checkIfGameOver(targetPlayer))
+              {
+                return targetPlayer.name == 'me' ? ShootingCodes.I_WON : ShootingCodes.AI_WON;
+              }
+              return hitBoatIndex;
+            }
+            return ShootingCodes.HIT;
+          case SpaceCodes.G_MISS:
+          case SpaceCodes.G_HIT:
+            return ShootingCodes.ALREADY_GUESSED;
+          default:
+            return ShootingCodes.ERROR; //?
+        }
+    },
+
+    getAIGuess : function (me) {
+      var randomX = Math.floor(10*Math.random());
+      var randomY = Math.floor(10*Math.random());
+      return [randomX, randomY];
     },
 
     createBoardDisplayString : function (map) {

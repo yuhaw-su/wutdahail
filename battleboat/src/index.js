@@ -3,6 +3,20 @@ var Alexa = require("alexa-sdk");
 var helper = require('./helper');
 var appId = 'amzn1.ask.skill.f609e63d-d852-4a6b-926b-9993ba85db53'; //'amzn1.echo-sdk-ams.app.your-skill-id';
 
+var ShootingCodes = {
+  ERROR : -1,
+  BOAT_ZERO_DOWN : 0,
+  BOAT_ONE_DOWN : 1,
+  BOAT_TWO_DOWN : 2,
+  BOAT_THREE_DOWN : 3,
+  BOAT_FOUR_DOWN : 4,
+  MISS : 5,
+  HIT : 6,
+  ALREADY_GUESSED : 7,
+  I_WON : 8,
+  AI_WON : 9
+};
+
 exports.handler = function(event, context, callback) {
     var alexa = Alexa.handler(event, context);
     alexa.appId = appId;
@@ -99,15 +113,25 @@ var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
   },
   'AMAZON.YesIntent': function() {
       this.handler.state = states.GUESSMODE;
-      this.attributes.myBoard = helper.initializeMap();
-      this.attributes.myShipInfo = helper.initializeShipInfo();
-      this.attributes.aiBoard = helper.initializeMap();
-      this.attributes.aiShipInfo = helper.initializeShipInfo();
-      helper.placeShipsRandomly(this.attributes.myBoard, this.attributes.myShipInfo);
-      helper.placeShipsRandomly(this.attributes.aiBoard, this.attributes.aiShipInfo);
+      var myBoard = helper.initializeMap();
+      var myShipInfo = helper.initializeShipInfo();
+      var aiBoard = helper.initializeMap();
+      var aiShipInfo = helper.initializeShipInfo();
+      this.attributes.me = {
+        name : "me",
+        board : myBoard,
+        shipInfo : myShipInfo
+      };
+      this.attributes.ai = {
+        name : "ai",
+        board : aiBoard,
+        shipInfo : aiShipInfo
+      };
+      helper.placeShipsRandomly(this.attributes.me.board, this.attributes.me.shipInfo);
+      helper.placeShipsRandomly(this.attributes.ai.board, this.attributes.ai.shipInfo);
       var repeat = 'Make a guess as to where my boats are, for example, a. five';
       var cardTitle = "Your Board";
-      var boardDisplay = helper.createBoardDisplayString(this.attributes.aiBoard);
+      var boardDisplay = helper.createBoardDisplayString(this.attributes.ai.board);
       this.emit(':askWithCard', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + repeat, repeat, cardTitle, boardDisplay);
   },
   'AMAZON.NoIntent': function() {
@@ -143,28 +167,73 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
     'GuessIntent': function () {
       var x = helper.moveNumberToXCoordinate(this.event.request.intent.slots.moveNumber.value);
       var y = helper.moveLetterToYCoordinate(this.event.request.intent.slots.moveLetter.value);
-      var aiBoardValue = this.attributes.aiBoard[x][y];
       var speechOutput = '';
       var response = 'Guess another spot, for example, a. five';
-      switch (aiBoardValue)
-      {
-        case 0:
-          speechOutput = 'Aww, you missed.';
-          this.attributes.aiBoard[x][y] = 2;
+      var shootingCode = helper.shoot(x, y, this.attributes.ai);
+      switch (shootingCode) {                 // user shoots
+        case ShootingCodes.BOAT_ZERO_DOWN:
+        case ShootingCodes.BOAT_ONE_DOWN:
+        case ShootingCodes.BOAT_TWO_DOWN:
+        case ShootingCodes.BOAT_THREE_DOWN:
+        case ShootingCodes.BOAT_FOUR_DOWN:
+          speechOutput = 'You sank my ' + this.attributes.ai.shipInfo[shootingCode].name + '! ';
           break;
-        case 1:
-          speechOutput = 'Hit!';
-          this.attributes.aiBoard[x][y] = 3;
+        case ShootingCodes.MISS:
+          speechOutput = 'Miss! ';
           break;
-        case 2:
-        case 3:
-          speechOutput = 'You have already guessed that spot.';
+        case ShootingCodes.HIT:
+          speechOutput = 'Thats a hit! ';
           break;
+        case ShootingCodes.ALREADY_GUESSED:
+          speechOutput = 'You have already guessed that spot. Please guess again, for example, a. five';
+          this.emit(':ask', speechOutput, response);
+          return;
+        case ShootingCodes.I_WON:
+          speechOutput = 'Congratulations, you beat me! Ill get you next time!';
+          this.emit(':tell', speechOutput);
+          return;
         default:
-          speechOutput = 'Oh no! The skill broke!';
-          this.attributes.aiBoard[x][y] = 2;
+          speechOutput = 'woah, how did you get here? Just guess again, for example, a. five';
+          this.emit(':ask', speechOutput, response);
+          return;
       }
-      this.emit(':ask', 'GuessIntent received');
+      // ai's turn
+      var aiSpeechOutput = '';
+      shootingCode = ShootingCodes.ALREADY_GUESSED;
+      while (shootingCode == ShootingCodes.ALREADY_GUESSED)
+      {
+        var aiGuess = helper.getAIGuess(this.attributes.me);
+        x = aiGuess[0];
+        y = aiGuess[1];
+        aiSpeechOutput = " I guess, " + helper.yCoordinateToMoveLetter(y) + " " + helper.xCoordinateToMoveNumber(x) + ". ";
+        shootingCode = helper.shoot(x, y, this.attributes.me);
+        switch (shootingCode) {                 // user shoots
+          case ShootingCodes.BOAT_ZERO_DOWN:
+          case ShootingCodes.BOAT_ONE_DOWN:
+          case ShootingCodes.BOAT_TWO_DOWN:
+          case ShootingCodes.BOAT_THREE_DOWN:
+          case ShootingCodes.BOAT_FOUR_DOWN:
+            aiSpeechOutput += 'I sank your ' + this.attributes.ai.shipInfo[shootingCode].name + '! ';
+            break;
+          case ShootingCodes.MISS:
+            aiSpeechOutput += 'I missed. Darn. ';
+            break;
+          case ShootingCodes.HIT:
+            aiSpeechOutput += 'I got a hit! ';
+            break;
+          case ShootingCodes.ALREADY_GUESSED:
+            break;
+          case ShootingCodes.AI_WON:
+            aiSpeechOutput += 'Haha, I won. Better luck next time!';
+            this.emit(':tell', speechOutput + aiSpeechOutput);
+            return;
+          default:
+            aiSpeechOutput = 'woah, how did you get here? Just guess again, for example, a. five';
+            this.emit(':ask', aiSpeechOutput, response);
+            return;
+        }
+      }
+      this.emit(':ask', speechOutput + aiSpeechOutput, response);
     },
     'NumberGuessIntent': function() {
         var guessNum = parseInt(this.event.request.intent.slots.number.value);

@@ -5,8 +5,14 @@
 //=================//
 //    Constants    //
 //=================//
+'use strict';
+var board = require('./board');
+var ship = require('./ship');
+var fleet = require('./fleet');
+var ai = require('./ai');
+
 var CONST = {};
-CONST.AVAILABLE_SHIPS = ['carrier', 'battleship', 'destroyer', 'submarine', 'patrolboat'];
+CONST.AVAILABLE_SHIPS = ['big big boat', 'big boat', 'boaty McBoat face', 'boboboat', 'a small yet strong boat'];
 
 // You are player 0 and the computer is player 1
 CONST.HUMAN_PLAYER = 0;
@@ -26,6 +32,7 @@ CONST.TYPE_SHIP = 1; // 1 = undamaged ship
 CONST.TYPE_MISS = 2; // 2 = water with a cannonball in it (missed shot)
 CONST.TYPE_HIT = 3; // 3 = damaged ship (hit shot)
 CONST.TYPE_SUNK = 4; // 4 = sunk ship
+CONST.TYPE_REDO = 5;
 
 // These numbers correspond to CONST.AVAILABLE_SHIPS
 // 0) 'carrier' 1) 'battleship' 2) 'destroyer' 3) 'submarine' 4) 'patrolboat'
@@ -38,7 +45,7 @@ CONST.UNUSED = 0;
 //      Game       //
 //=================//
 // Constructor
-function Game(size) {
+Game.prototype.constructor = function() {
     Game.size = 10; // Default grid size is 10x10
     this.init();
     this.gameOver = false;
@@ -64,10 +71,10 @@ Game.prototype.init = function() {
 // Checks if the game is won
 Game.prototype.checkIfWon = function() {
     if (this.computerFleet.allShipsSunk()) {
-        document.write("Congratulations, you win! <br />");
+        // document.write("Congratulations, you win! <br />");
         this.gameOver = true;
     } else if (this.humanFleet.allShipsSunk()) {
-        document.write("Yarr! The computer sank all your ships. Try again.  <br />");
+        // document.write("Yarr! The computer sank all your ships. Try again.  <br />");
         this.gameOver = true;
     }
 };
@@ -100,9 +107,7 @@ Game.prototype.shoot = function(x, y, targetPlayer) {
         // If the player makes a wrong input
         else{
             // Get new input and try again
-            x = prompt(x);
-            y = prompt(y);
-            this.shoot(x, y, targetPlayer);
+            return CONST.TYPE_REDO;
         }
     }
     // If they try to shoot somewhere they have already missed
@@ -115,9 +120,7 @@ Game.prototype.shoot = function(x, y, targetPlayer) {
         // If the player makes a wrong input
         else{
             // Get new input and try again
-            x = prompt(x);
-            y = prompt(y);
-            this.shoot(x, y, targetPlayer);
+            return CONST.TYPE_REDO;
         }
     }
     // If they hit a ship
@@ -151,62 +154,64 @@ function getRandom(min, max) {
     return Math.random() * (max - min) + min;
 }
 
-//=================//
-//      Tests      //
-//=================//
-// Start the game
-var mainGame = new Game(10);
+module.exports = Game.prototype;
 
-// @ Test 1
-// Print arrays of 0s
-document.write("Test 1 - Empty Boards <br />");
-document.write("Human Board <br />");
-mainGame.humanBoard.printBoard();
-document.write("Computer Board <br />");
-mainGame.computerBoard.printBoard();
-document.write("============== <br /><br />");
-
-// @ Test 2
-// Should place ships correctly
-document.write("Test 2 - Placed Ships <br />");
-mainGame.placeRandomly();
-document.write("Human Board <br />");
-mainGame.humanBoard.printBoard();
-document.write("Computer Board <br />");
-mainGame.computerBoard.printBoard();
-document.write("============== <br /><br />");
-
-
-// @ Test 3
-// Should print an array of 2s and 4s and a win game message
-document.write("Test 3 - Kill The Computer <br />");
-for (var i = 0; i < Game.size; i++) {
-    for(var j = 0; j < Game.size; j++) {
-        mainGame.shoot(i, j, CONST.COMPUTER_PLAYER);
-        if(mainGame.gameOver){
-            break;
-        }
-    }
-    if(mainGame.gameOver){
-        break;
-    }
-}
-document.write("Human Board <br />");
-mainGame.humanBoard.printBoard();
-document.write("Computer Board <br />");
-mainGame.computerBoard.printBoard();
-document.write("============== <br /><br />");
-
-
-// @ Test 4 - Invalid Input
-// If the user fires somewhere they already have, let them try again
-mainGame = new Game(10);
-
-document.write("Test 4 - Invalid Player Input <br />");
-mainGame.shoot(0, 0, CONST.COMPUTER_PLAYER);
-document.write("Computer Board <br />");
-mainGame.computerBoard.printBoard();
-mainGame.shoot(0, 0, CONST.COMPUTER_PLAYER);
-document.write("Computer Board <br />");
-mainGame.computerBoard.printBoard();
-document.write("============== <br /><br />");
+// //=================//
+// //      Tests      //
+// //=================//
+// // Start the game
+// var mainGame = new Game(10);
+//
+// // @ Test 1
+// // Print arrays of 0s
+// document.write("Test 1 - Empty Boards <br />");
+// document.write("Human Board <br />");
+// mainGame.humanBoard.printBoard();
+// document.write("Computer Board <br />");
+// mainGame.computerBoard.printBoard();
+// document.write("============== <br /><br />");
+//
+// // @ Test 2
+// // Should place ships correctly
+// document.write("Test 2 - Placed Ships <br />");
+// mainGame.placeRandomly();
+// document.write("Human Board <br />");
+// mainGame.humanBoard.printBoard();
+// document.write("Computer Board <br />");
+// mainGame.computerBoard.printBoard();
+// document.write("============== <br /><br />");
+//
+//
+// // @ Test 3
+// // Should print an array of 2s and 4s and a win game message
+// document.write("Test 3 - Kill The Computer <br />");
+// for (var i = 0; i < Game.size; i++) {
+//     for(var j = 0; j < Game.size; j++) {
+//         mainGame.shoot(i, j, CONST.COMPUTER_PLAYER);
+//         if(mainGame.gameOver){
+//             break;
+//         }
+//     }
+//     if(mainGame.gameOver){
+//         break;
+//     }
+// }
+// document.write("Human Board <br />");
+// mainGame.humanBoard.printBoard();
+// document.write("Computer Board <br />");
+// mainGame.computerBoard.printBoard();
+// document.write("============== <br /><br />");
+//
+//
+// // @ Test 4 - Invalid Input
+// // If the user fires somewhere they already have, let them try again
+// mainGame = new Game(10);
+//
+// document.write("Test 4 - Invalid Player Input <br />");
+// mainGame.shoot(0, 0, CONST.COMPUTER_PLAYER);
+// document.write("Computer Board <br />");
+// mainGame.computerBoard.printBoard();
+// mainGame.shoot(0, 0, CONST.COMPUTER_PLAYER);
+// document.write("Computer Board <br />");
+// mainGame.computerBoard.printBoard();
+// document.write("============== <br /><br />");
