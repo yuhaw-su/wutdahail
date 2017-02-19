@@ -153,7 +153,7 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
           this.attributes.aiBoard[x][y] = 2;
           break;
         case 1:
-          sppechOutput = 'Hit!';
+          speechOutput = 'Hit!';
           this.attributes.aiBoard[x][y] = 3;
           break;
         case 2:
