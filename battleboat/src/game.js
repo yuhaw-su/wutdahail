@@ -505,12 +505,12 @@ function AI(gameObject) {
     this.mode = HUNT_MODE;
 }
 
-AI.prototype.shoot = function(mode) {
+AI.prototype.shoot = function() {
 
-    if(mode === HUNT_MODE){
+    if(this.mode === HUNT_MODE){
         var result = this.randomlyShoot();
     }
-    else if(mode === TARGET_MODE){
+    else if(this.mode === TARGET_MODE){
 
     }
 };
