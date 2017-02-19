@@ -35,11 +35,10 @@ var newSessionHandlers = {
     'NewSession': function() {
         if(Object.keys(this.attributes).length === 0) {
             this.attributes.endedSessionCount = 0;
-            this.attributes.gamesPlayed = 0;
         }
         this.handler.state = states.STARTMODE;
-        this.emit(':ask', 'Welcome to battle boat, a one-hundred percent original, one-of-a-kind game. You have played '
-            + this.attributes.gamesPlayed.toString() + ' times. would you like to play?',
+        this.emit(':ask', 'Welcome to battle boat, a one-hundred percent original, one-of-a-kind game. '
+            + 'Would you like to play?',
             'Say yes to start the game or no to quit.');
     },
     "AMAZON.StopIntent": function() {
@@ -100,10 +99,10 @@ var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
       this.emitWithState('NewSession'); // Equivalent to the Start Mode NewSession handler
   },
   'PlaceBoatIntent': function () {
-      var startNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.startNumber.value);
-      var startLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.startLetter.value);
-      var endNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.endNumber.value);
-      var endLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.endLetter.value);
+      var startNumber = helper.moveNumberToYCoordinate(this.event.request.intent.slots.startNumber.value);
+      var startLetter = helper.moveLetterToXCoordinate(this.event.request.intent.slots.startLetter.value);
+      var endNumber = helper.moveNumberToYCoordinate(this.event.request.intent.slots.endNumber.value);
+      var endLetter = helper.moveLetterToXCoordinate(this.event.request.intent.slots.endLetter.value);
       this.emit(':ask', startLetter + " " + startNumber + " to " + endLetter + " " + endNumber, 'hi');
   },
   'AMAZON.HelpIntent': function() {
@@ -131,8 +130,8 @@ var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
       helper.placeShipsRandomly(this.attributes.ai.board, this.attributes.ai.shipInfo);
       var repeat = 'Make a guess as to where my boats are, for example, a. five';
       var cardTitle = "Your Board";
-      var boardDisplay = helper.createBoardDisplayString(this.attributes.ai.board);
-      this.emit(':askWithCard', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + repeat, repeat, cardTitle, boardDisplay);
+      var boardDisplay = helper.createBoardDisplayString(this.attributes.me);
+      this.emit(':askWithCard', 'Fantastic! I promise I will not cheat. Now lets begin. Its your move, ' + repeat, repeat, cardTitle, boardDisplay);
   },
   'AMAZON.NoIntent': function() {
       console.log("NOINTENT");
@@ -165,10 +164,17 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
     },
 
     'GuessIntent': function () {
-      var x = helper.moveNumberToXCoordinate(this.event.request.intent.slots.moveNumber.value);
-      var y = helper.moveLetterToYCoordinate(this.event.request.intent.slots.moveLetter.value);
+      var rawY = this.event.request.intent.slots.moveLetter.value;
+      var rawX = this.event.request.intent.slots.moveNumber.value;
+      var y = helper.moveLetterToXCoordinate(rawY);
+      var x = helper.moveNumberToYCoordinate(rawX);
       var speechOutput = '';
-      var response = 'Guess another spot, for example, a. five';
+      var response = 'Guess another spot.';
+      if (x < 0 || x >= 9 || y < 0 || y >= 9)
+      {
+        this.emit(':ask', "That wasn't a valid guess. Try again. Guess another spot.", response + " For example, a. five.");
+        return;
+      }
       var shootingCode = helper.shoot(x, y, this.attributes.ai);
       switch (shootingCode) {                 // user shoots
         case ShootingCodes.BOAT_ZERO_DOWN:
@@ -189,7 +195,8 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
           this.emit(':ask', speechOutput, response);
           return;
         case ShootingCodes.I_WON:
-          speechOutput = 'Congratulations, you beat me! Ill get you next time!';
+          speechOutput = 'Congratulations, you beat me! Ill get you next time!  Would you like to play again? Say yes or no.';
+          this.handler.state = states.STARTMODE;
           this.emit(':tell', speechOutput);
           return;
         default:
@@ -205,7 +212,7 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
         var aiGuess = helper.getAIGuess(this.attributes.me);
         x = aiGuess[0];
         y = aiGuess[1];
-        aiSpeechOutput = " I guess, " + helper.yCoordinateToMoveLetter(y) + " " + helper.xCoordinateToMoveNumber(x) + ". ";
+        aiSpeechOutput = " My turn. " + helper.xCoordinateToMoveLetter(y) + " " + helper.yCoordinateToMoveNumber(x) + ". ";
         shootingCode = helper.shoot(x, y, this.attributes.me);
         switch (shootingCode) {                 // user shoots
           case ShootingCodes.BOAT_ZERO_DOWN:
@@ -224,39 +231,22 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
           case ShootingCodes.ALREADY_GUESSED:
             break;
           case ShootingCodes.AI_WON:
-            aiSpeechOutput += 'Haha, I won. Better luck next time!';
+            aiSpeechOutput += 'Haha, I won. Better luck next time! Would you like to play again? Say yes or no.';
+            this.handler.state = states.STARTMODE;
             this.emit(':tell', speechOutput + aiSpeechOutput);
             return;
           default:
-            aiSpeechOutput = 'woah, how did you get here? Just guess again, for example, a. five';
+            aiSpeechOutput = 'woah, how did you get here? Just guess again.';
             this.emit(':ask', aiSpeechOutput, response);
             return;
         }
       }
-      this.emit(':ask', speechOutput + aiSpeechOutput, response);
-    },
-    'NumberGuessIntent': function() {
-        var guessNum = parseInt(this.event.request.intent.slots.number.value);
-        var targetNum = this.attributes.guessNumber;
-        console.log('user guessed: ' + guessNum);
-
-        if(guessNum > targetNum){
-            this.emit('TooHigh', guessNum);
-        } else if( guessNum < targetNum){
-            this.emit('TooLow', guessNum);
-        } else if (guessNum === targetNum){
-            // With a callback, use the arrow function to preserve the correct 'this' context
-            this.emit('JustRight', () => {
-                this.emit(':ask', guessNum.toString() + 'is correct! Would you like to play a new game?',
-                'Say yes to start a new game, or no to end the game.');
-            });
-        } else {
-            this.emit('NotANum');
-        }
+      var gridString = helper.createBoardDisplayString(this.attributes.ai);
+      this.emit(':askWithCard', speechOutput + aiSpeechOutput + response, response + "for example, a. five.", "It's youre move!", gridString);
     },
     'AMAZON.HelpIntent': function() {
-        this.emit(':ask', 'I am thinking of a number between zero and one hundred, try to guess and I will tell you' +
-            ' if it is higher or lower.', 'Try saying a number.');
+        this.emit(':ask', 'Refer to the Alexa app to see all of your guesses.' +
+            ' Guess now, for example, a. five', 'Guess now, for example, a. five');
     },
     "AMAZON.StopIntent": function() {
         console.log("STOPINTENT");
@@ -278,18 +268,4 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
 
 // These handlers are not bound to a state
 var guessAttemptHandlers = {
-    'TooHigh': function(val) {
-        this.emit(':ask', val.toString() + ' is too high.', 'Try saying a smaller number.');
-    },
-    'TooLow': function(val) {
-        this.emit(':ask', val.toString() + ' is too low.', 'Try saying a larger number.');
-    },
-    'JustRight': function(callback) {
-        this.handler.state = states.STARTMODE;
-        this.attributes.gamesPlayed++;
-        callback();
-    },
-    'NotANum': function() {
-        this.emit(':ask', 'Sorry, I didn\'t get that. Try saying a number.', 'Try saying a number.');
-    }
 };

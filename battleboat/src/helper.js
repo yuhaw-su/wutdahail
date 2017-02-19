@@ -70,7 +70,7 @@ function checkIfGameOver (otherPlayer)
 
 var helper = (function () {
   return {
-    moveLetterToYCoordinate : function (letter) {
+    moveLetterToXCoordinate : function (letter) {
       switch (letter[0].toUpperCase()) {
         case "A":
         case "a.":
@@ -107,7 +107,7 @@ var helper = (function () {
       }
     },
 
-    yCoordinateToMoveLetter : function (y) {
+    xCoordinateToMoveLetter : function (y) {
       switch (y) {
         case 0:
           return "a.";
@@ -134,15 +134,12 @@ var helper = (function () {
       }
     },
 
-    moveNumberToXCoordinate : function (num) {
+    moveNumberToYCoordinate : function (num) {
       var intValue = parseInt(num,10);
-      if (intValue >= 1 && intValue <= 10)
-        return intValue - 1;
-      else
-        return -1;
+      return intValue - 1;
     },
 
-    xCoordinateToMoveNumber : function (x) {
+    yCoordinateToMoveNumber : function (x) {
       return x + 1;
     },
 
@@ -245,25 +242,33 @@ var helper = (function () {
       return [randomX, randomY];
     },
 
-    createBoardDisplayString : function (map) {
-      var output = '';
-      for (var i = 0; i < map.length; i++)
+    createBoardDisplayString : function (player) {
+      var output = '----A---B---C--D---E---F--G---H---I---J\n';
+      for (var i = 0; i < player.board.length; i++)
       {
-        for (var j = 0; j < map[i].length; j++)
+        output += (i+1).toString() + "-";
+        if (i != 9) output += "-";
+        for (var j = 0; j < player.board[i].length; j++)
         {
-          var placeValue = map[i][j];
+          var placeValue = player.board[i][j];
           switch (placeValue) {
             case 0:
-              output += '0';
+              output += '⬜️';
               break;
             case 1:
-              output += '1';
+              if (player.name == "ai")
+                output += '⬜️';
+              else
+                output += '🚢'
               break;
             case 2:
-              output += '2';
+              output += '💧';
               break;
             case 3:
-              output += '3';
+              if (player.name == "ai")
+                output += '💥';
+              else
+                output += '🚢';
               break;
             default:
               output += 'fuck';
