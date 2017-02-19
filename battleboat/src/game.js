@@ -452,12 +452,14 @@ function setDebug(val) {
 
 Board.prototype.printBoard = function() {
     for (var x = 0; x < this.size; x++) {
-        var row = [];
-        this.cells[x] = row;
+        var row = this.cells[x];
+
         for (var y = 0; y < this.size; y++) {
-            document.write(row[y]);
+            document.write(row[y] + " ");
+
         }
-        document.write("\n");
+
+        document.write("<br />");
     }
 }
 
@@ -466,15 +468,15 @@ setDebug(true);
 var mainGame = new Game(10);
 
 mainGame.humanBoard.printBoard();
-console.log("\n");
+document.write("<br />");
 
-/*mainGame.placeRandomly();
+mainGame.placeRandomly();
 mainGame.humanBoard.printBoard();
-console.log("\n");
+document.write("<br />");
 
 mainGame.shoot(0,0, CONST.HUMAN_PLAYER);
 mainGame.humanBoard.printBoard();
-console.log("\n");
+document.write("<br />");
 
 for (var i = 0; i < 10; i++) {
     for(var j=0; j<10; j++) {
@@ -482,5 +484,4 @@ for (var i = 0; i < 10; i++) {
     }
 }
 mainGame.humanBoard.printBoard();
-console.log("\n");
-    */
+document.write("<br />");
