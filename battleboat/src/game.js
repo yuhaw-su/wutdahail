@@ -9,6 +9,7 @@ CONST.AVAILABLE_SHIPS = ['carrier', 'battleship', 'destroyer', 'submarine', 'pat
 // You are player 0 and the computer is player 1
 CONST.HUMAN_PLAYER = 0;
 CONST.COMPUTER_PLAYER = 1;
+CONST.VIRTUAL_PLAYER = 2;
 
 // Possible values for the parameter `type` (string)
 CONST.CSS_TYPE_EMPTY = 'empty';
@@ -178,7 +179,7 @@ Board.prototype.updateCell = function(x, y, type, targetPlayer) {
         player = 'computer-player';
     } else {
         // Should never be called
-        console.log("There was an error trying to find the correct player's grid");
+        console.log("There was an error trying to find the correct player's board");
     }
 
     switch (type) {
@@ -201,8 +202,6 @@ Board.prototype.updateCell = function(x, y, type, targetPlayer) {
             this.cells[x][y] = CONST.TYPE_EMPTY;
             break;
     }
-    var classes = ['grid-cell', 'grid-cell-' + x + '-' + y, 'grid-' + type];
-    document.querySelector('.' + player + ' .grid-cell-' + x + '-' + y).setAttribute('class', classes.join(' '));
 };
 // Checks to see if a cell contains an undamaged ship
 // Returns boolean
@@ -493,15 +492,68 @@ Ship.DIRECTION_HORIZONTAL = 1;
 //=================//
 //      AI         //
 //=================//
+// Randomly guess
+var HUNT_MODE = 0;
+// Search adjacent cells
+var TARGET_MODE = 1;
+
 // Constructor
 function AI(gameObject) {
     this.gameObject = gameObject;
     this.virtualGrid = new Board(Game.size);
     this.virtualFleet = new Fleet(this.virtualGrid, CONST.VIRTUAL_PLAYER);
+    this.mode = HUNT_MODE;
 }
 
+AI.prototype.shoot = function(mode) {
 
+    if(mode === HUNT_MODE){
+        var result = this.randomlyShoot();
+    }
+    else if(mode === TARGET_MODE){
 
+    }
+};
+
+AI.prototype.randomlyShoot = function() {
+    var x = getRandom(0,9);
+    var y = getRandom(0,9);
+    var result = this.gameObject.shoot(x, y, CONST.HUMAN_PLAYER);
+
+    // If the game ends, the next lines need to be skipped.
+    if (Game.gameOver) {
+        Game.gameOver = false;
+        return;
+    }
+
+    this.virtualGrid.cells[x][y] = result;
+
+    // If you hit a ship, check to make sure if you've sunk it.
+    if (result === CONST.TYPE_HIT) {
+        var humanShip = this.findHumanShip(x, y);
+        if (humanShip.isSunk()) {
+            // Remove any ships from the roster that have been sunk
+            var shipTypes = [];
+            for (var k = 0; k < this.virtualFleet.fleetRoster.length; k++) {
+                shipTypes.push(this.virtualFleet.fleetRoster[k].type);
+            }
+            var index = shipTypes.indexOf(humanShip.type);
+            this.virtualFleet.fleetRoster.splice(index, 1);
+
+            // Update the virtual grid with the sunk ship's cells
+            var shipCells = humanShip.getAllShipCells();
+            for (var _i = 0; _i < shipCells.length; _i++) {
+                this.virtualGrid.cells[shipCells[_i].x][shipCells[_i].y] = CONST.TYPE_SUNK;
+            }
+        }
+    }
+};
+
+// Finds a human ship by coordinates
+// Returns Ship
+AI.prototype.findHumanShip = function(x, y) {
+    return this.gameObject.humanFleet.findShipByCoords(x, y);
+};
 
 
 // Returns a random number between min (inclusive) and max (exclusive)
