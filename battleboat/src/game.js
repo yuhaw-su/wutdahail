@@ -71,8 +71,7 @@ Game.prototype.checkIfWon = function() {
         this.gameOver = true;
     }
 };
-// Shoots at the target player on the board.
-// Returns {int} Constants.TYPE: What the shot uncovered
+// Shoots at the target player on the board and updates cells if necessary
 Game.prototype.shoot = function(x, y, targetPlayer) {
     var targetBoard;
     var targetFleet;
@@ -123,22 +122,24 @@ Game.prototype.shoot = function(x, y, targetPlayer) {
     }
     // If they hit a ship
     else if (targetBoard.isUndamagedShip(x, y)) {
-        // Update the board/grid
+        // Update the board with a hit
         targetBoard.updateCell(x, y, 'hit', targetPlayer);
 
         // IMPORTANT: This function needs to be called _after_ updating the cell to a 'hit',
         // because it overrides the CSS class to 'sunk' if we find that the ship was sunk
         targetFleet.findShipByCoords(x, y).incrementDamage(); // increase the damage
+
         this.checkIfWon();
-        return CONST.TYPE_HIT;
     }
     // If they miss
     else {
+        // Update the board with a miss
         targetBoard.updateCell(x, y, 'miss', targetPlayer);
+
         this.checkIfWon();
-        return CONST.TYPE_MISS;
     }
 };
+
 // Debugging function used to place all ships and just start
 Game.prototype.placeRandomly = function(){
     this.humanFleet.placeShipsRandomly();
