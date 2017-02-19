@@ -54,7 +54,7 @@ var startGameHandlers = Alexa.CreateStateHandler(states.STARTMODE, {
         this.attributes.guessNumber = Math.floor(Math.random() * 100);
         this.handler.state = states.PLACEMODE;
         var repeat = 'Would you like me to randomly assign your boats locations? Say yes or no.';
-        this.emit(':ask', 'Great! Lets begin by placing your boats.' + repeat, repeat);
+        this.emit(':ask', 'Great! Lets begin by placing your boats. ' + repeat, repeat);
     },
     'AMAZON.NoIntent': function() {
         console.log("NOINTENT");
@@ -106,16 +106,9 @@ var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
       helper.placeShipsRandomly(this.attributes.myBoard, this.attributes.myShipInfo);
       helper.placeShipsRandomly(this.attributes.aiBoard, this.attributes.aiShipInfo);
       var repeat = 'Make a guess as to where my boats are, for example, a. five';
-      var testString = "";
-      for (var i = 0; i < this.attributes.myBoard.length; i++)
-      {
-        for (var j = 0; j < this.attributes.myBoard[0].length; j++)
-        {
-          testString += this.attributes.myBoard[i][j];
-        }
-        testString += ';';
-      }
-      this.emit(':ask', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + testString, repeat);
+      var cardTitle = "Your Board";
+      var boardDisplay = helper.createBoardDisplayString(this.attributes.aiBoard);
+      this.emit(':askWithCard', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + repeat, repeat, cardTitle, boardDisplay);
   },
   'AMAZON.NoIntent': function() {
       console.log("NOINTENT");
@@ -148,6 +141,29 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
     },
 
     'GuessIntent': function () {
+      var x = helper.moveNumberToXCoordinate(this.event.request.intent.slots.moveNumber.value);
+      var y = helper.moveLetterToYCoordinate(this.event.request.intent.slots.moveLetter.value);
+      var aiBoardValue = this.attributes.aiBoard[x][y];
+      var speechOutput = '';
+      var response = 'Guess another spot, for example, a. five';
+      switch (aiBoardValue)
+      {
+        case 0:
+          speechOutput = 'Aww, you missed.';
+          this.attributes.aiBoard[x][y] = 2;
+          break;
+        case 1:
+          sppechOutput = 'Hit!';
+          this.attributes.aiBoard[x][y] = 3;
+          break;
+        case 2:
+        case 3:
+          speechOutput = 'You have already guessed that spot.';
+          break;
+        default:
+          speechOutput = 'Oh no! The skill broke!';
+          this.attributes.aiBoard[x][y] = 2;
+      }
       this.emit(':ask', 'GuessIntent received');
     },
     'NumberGuessIntent': function() {

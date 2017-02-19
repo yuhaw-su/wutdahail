@@ -165,6 +165,36 @@ var helper = (function () {
         });
       }
       return shipInfo;
+    },
+
+    createBoardDisplayString : function (map) {
+      var output = '';
+      for (var i = 0; i < map.length; i++)
+      {
+        for (var j = 0; j < map[i].length; j++)
+        {
+          var placeValue = map[i][j];
+          switch (placeValue) {
+            case 0:
+              output += '0';
+              break;
+            case 1:
+              output += '1';
+              break;
+            case 2:
+              output += '2';
+              break;
+            case 3:
+              output += '3';
+              break;
+            default:
+              output += 'fuck';
+          }
+          output += ' ';
+        }
+        output += '\n';
+      }
+      return output;
     }
   };
 })();
