@@ -29,13 +29,13 @@ var DirectionCodes = {
 
 function isLegalPlacement (map, startX, startY, direction, shipLength)
 {
-  if ((direction == DirectionCodes.DOWN && (startY+shipLength) >= 10) || (direction == DirectionCodes.RIGHT && (startX+shipLength) >= 10))
+  if ((direction == DirectionCodes.DOWN && (startX+shipLength) >= 10) || (direction == DirectionCodes.RIGHT && (startY+shipLength) >= 10))
     return false;
   for (var i = 0; i < shipLength; i++)
   {
-    if (direction == DirectionCodes.DOWN && map[startY+i][startX] == 1)
+    if (direction == DirectionCodes.DOWN && map[startX+i][startY] == 1)
       return false;
-    else if (map[startY][startX+i] == 1)
+    else if (map[startX][startY+i] == 1)
       return false;
   }
   return true;
@@ -68,39 +68,83 @@ function checkIfGameOver (otherPlayer)
   return true;
 }
 
+function placeBoat (x, y, direction, player, shipIndex)
+{
+  player.shipInfo[shipIndex].startX = x;
+  player.shipInfo[shipIndex].startY = y;
+  player.shipInfo[shipIndex].direction = direction;
+  for (var j = 0; j < player.shipInfo[shipIndex].size; j++)
+  {
+    if (direction == DirectionCodes.RIGHT) //horizontal
+    {
+      player.board[x][y+j] = 1;
+    }
+    else
+    {
+      player.board[x+j][y] = 1;
+    }
+  }
+  player.shipsEntered++;
+}
+
+function huntMode (x, y, me) {
+  // puts stuff in queue (only if the AI hits something)
+  if(me.board[x][y] === ShootingCodes.UG_HIT) {
+    if(x >= 1 && (me.board[x - 1][y] === 0 || me.board[x - 1][y] === 1)){
+        me.aiGuessQueue.push([x - 1,y]);
+    }
+    // below
+    if(x < 9 && (me.board[x + 1][y] === 0 || me.board[x + 1][y] === 1)){
+        me.aiGuessQueue.push([x + 1, y]);
+    }
+    //left
+    if(y >= 1 && (me.board[x][y - 1] === 0 || me.board[x][y - 1] === 1)){
+        me.aiGuessQueue.push([x, y - 1]);
+    }
+    // down
+    if(y < 9 && (me.board[x][y + 1] === 0 || me.board[x][y + 1] === 1)){
+        me.aiGuessQueue.push([x, y + 1]);
+    }
+    return false;
+  }
+  else {
+    return true;
+  }
+}
+
+function targetMode (me) {
+  // checks if the queue is empty
+  if(me.aiGuessQueue.length === 0) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+
 var helper = (function () {
   return {
     moveLetterToXCoordinate : function (letter) {
-      switch (letter[0].toUpperCase()) {
-        case "A":
-        case "a.":
+      switch (letter.toLowerCase()) {
+        case "alpha":
           return 0;
-        case "B":
-        case "b.":
+        case "bravo":
           return 1;
-        case "C":
-        case "c.":
+        case "charlie":
           return 2;
-        case "D":
-        case "d.":
+        case "delta":
           return 3;
-        case "E":
-        case "e.":
+        case "echo":
           return 4;
-        case "F":
-        case "f.":
+        case "foxtrot":
           return 5;
-        case "G":
-        case "g.":
+        case "golf":
           return 6;
-        case "H":
-        case "h.":
+        case "hotel":
           return 7;
-        case "I":
-        case "i.":
+        case "india":
           return 8;
-        case "J":
-        case "j.":
+        case "juliette":
           return 9;
         default:
           return -1;
@@ -110,25 +154,25 @@ var helper = (function () {
     xCoordinateToMoveLetter : function (y) {
       switch (y) {
         case 0:
-          return "a.";
+          return "alpha";
         case 1:
-          return "b.";
+          return "beta";
         case 2:
-          return "c.";
+          return "charlie";
         case 3:
-          return "d.";
+          return "delta";
         case 4:
-          return "e.";
+          return "echo";
         case 5:
-          return "f.";
+          return "foxtrot";
         case 6:
-          return "g.";
+          return "golf";
         case 7:
-          return "h.";
+          return "hotel";
         case 8:
-          return "i.";
+          return "india";
         case 9:
-          return "j.";
+          return "juliette";
         default:
           return "well then...shit";
       }
@@ -143,8 +187,8 @@ var helper = (function () {
       return x + 1;
     },
 
-    placeShipsRandomly : function(map, shipInfo) {
-    	for (var i = 0; i < shipInfo.length; i++)
+    placeShipsRandomly : function(player) {
+    	for (var i = 0; i < player.shipInfo.length; i++)
       {
     		var illegalPlacement = true;
     		while (illegalPlacement)
@@ -152,22 +196,9 @@ var helper = (function () {
     			var randomX = Math.floor(10*Math.random());
     			var randomY = Math.floor(10*Math.random());
     			var randomDirection = Math.floor(2*Math.random()) == 0 ? DirectionCodes.RIGHT : DirectionCodes.DOWN;
-    			if (isLegalPlacement(map, randomX, randomY, randomDirection, shipInfo[i].size))
+    			if (isLegalPlacement(player.board, randomX, randomY, randomDirection, player.shipInfo[i].size))
           {
-            shipInfo[i].startX = randomX;
-            shipInfo[i].startY = randomY;
-            shipInfo[i].direction = randomDirection;
-    				for (var j = 0; j < shipInfo[i].size; j++)
-            {
-              if (randomDirection == DirectionCodes.RIGHT) //horizontal
-              {
-                map[randomX+j][randomY] = 1;
-              }
-              else
-              {
-                map[randomX][randomY+j] = 1;
-              }
-            }
+            placeBoat(randomX, randomY, randomDirection, player, i);
     				illegalPlacement = false;
     			} else {
     				continue;
@@ -218,6 +249,8 @@ var helper = (function () {
             targetPlayer.board[x][y] = 3;
             var hitBoatIndex = determineWhichBoatWasHit(x, y, targetPlayer);
             console.log(hitBoatIndex);
+            if (hitBoatIndex == -1)
+              return ShootingCodes.MISS;
             targetPlayer.shipInfo[hitBoatIndex].life = targetPlayer.shipInfo[hitBoatIndex].life - 1;
             if (targetPlayer.shipInfo[hitBoatIndex].life == 0)
             {
@@ -239,11 +272,17 @@ var helper = (function () {
     getAIGuess : function (me) {
       var randomX = Math.floor(10*Math.random());
       var randomY = Math.floor(10*Math.random());
-      return [randomX, randomY];
+
+      if(huntMode(randomX, randomY, me)) {
+        return [randomX, randomY];
+      } else if (targetMode()) {
+        var popedFromQueue = me.aiGuessQueue.shift();
+        return [popedFromQueue[0], popedFromQueue[1]];
+      }
     },
 
     createBoardDisplayString : function (player) {
-      var output = '----A---B---C--D---E---F--G---H---I---J\n';
+      var output = '----A---B--C---D---E---F--G---H---I---J\n';
       for (var i = 0; i < player.board.length; i++)
       {
         output += (i+1).toString() + "-";
@@ -259,7 +298,7 @@ var helper = (function () {
               if (player.name == "ai")
                 output += '⬜️';
               else
-                output += '🚢'
+                output += '🚢';
               break;
             case 2:
               output += '💧';
@@ -278,6 +317,16 @@ var helper = (function () {
         output += '\n';
       }
       return output;
+    },
+
+    isLegalPlacement : function (x, y, direction, map, size)
+    {
+      return isLegalPlacement(map, x, y, direction, size);
+    },
+
+    placeBoat : function (x, y, direction, player, index)
+    {
+      return placeBoat(x, y, direction, player, index);
     }
   };
 })();
