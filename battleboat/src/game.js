@@ -35,38 +35,6 @@ CONST.USED = 1;
 CONST.UNUSED = 0;
 
 //=================//
-//      Stats      //
-//=================//
-// Constructor
-function Stats(){
-    this.shotsTaken = 0;
-    this.shotsHit = 0;
-    if (DEBUG_MODE) {
-        this.skipCurrentGame = true;
-    }
-}
-Stats.prototype.incrementShots = function() {
-    this.shotsTaken++;
-};
-Stats.prototype.hitShot = function() {
-    this.shotsHit++;
-};
-Stats.prototype.wonGame = function() {
-    this.gamesPlayed++;
-    this.gamesWon++;
-    if (!DEBUG_MODE) {
-        ga('send', 'event', 'gameOver', 'win', this.uuid);
-    }
-};
-Stats.prototype.lostGame = function() {
-    this.gamesPlayed++;
-    if (!DEBUG_MODE) {
-        ga('send', 'event', 'gameOver', 'lose', this.uuid);
-    }
-};
-
-
-//=================//
 //      Game       //
 //=================//
 // Constructor
@@ -137,7 +105,6 @@ Game.prototype.init = function() {
     this.computerFleet = new Fleet(this.computerBoard, CONST.COMPUTER_PLAYER);
 
     this.robot = new AI(this);
-    Game.stats = new Stats();
 
     // Reset game variables
     this.shotsTaken = 0;
