@@ -1,0 +1,27 @@
+{
+  "name": "battleboat",
+  "version": "1.0.0",
+  "description": "Battleboat game for Alexa",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuhaw-su/wutdahail.git"
+  },
+  "keywords": [
+    "Alexa",
+    "game",
+    "skill"
+  ],
+  "author": "Richard Su",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/yuhaw-su/wutdahail/lolwedonthaveabugspage"
+  },
+  "homepage": "https://github.com/yuhaw-su/wutdahail#readme",
+  "dependencies": {
+    "alexa-sdk": "^1.0.0"
+  }
+}
