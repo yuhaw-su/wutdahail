@@ -1,30 +1,31 @@
 'use strict';
 var Alexa = require("alexa-sdk");
-var helper = requre("./helper");
+var helper = require('./helper');
 var appId = 'amzn1.ask.skill.f609e63d-d852-4a6b-926b-9993ba85db53'; //'amzn1.echo-sdk-ams.app.your-skill-id';
 
 exports.handler = function(event, context, callback) {
     var alexa = Alexa.handler(event, context);
     alexa.appId = appId;
     // alexa.dynamoDBTableName = 'highLowGuessUsers';
-    alexa.registerHandlers(newSessionHandlers, guessModeHandlers, startGameHandlers, guessAttemptHandlers);
+    alexa.registerHandlers(newSessionHandlers, guessModeHandlers, startGameHandlers, placeBoatModeHandlers, guessAttemptHandlers);
     alexa.execute();
 };
 
 var states = {
     GUESSMODE: '_GUESSMODE', // User is trying to guess the number.
-    STARTMODE: '_STARTMODE'  // Prompt the user to start or restart the game.
+    PLACEMODE: '_PLACEMODE',
+    STARTMODE: '_STARTMODE' // Prompt the user to start or restart the game.
 };
 
 var newSessionHandlers = {
     'NewSession': function() {
         if(Object.keys(this.attributes).length === 0) {
-            this.attributes['endedSessionCount'] = 0;
-            this.attributes['gamesPlayed'] = 0;
+            this.attributes.endedSessionCount = 0;
+            this.attributes.gamesPlayed = 0;
         }
         this.handler.state = states.STARTMODE;
-        this.emit(':ask', 'Welcome to High Low guessing game. You have played '
-            + this.attributes['gamesPlayed'].toString() + ' times. would you like to play?',
+        this.emit(':ask', 'Welcome to battle boat, a one-hundred percent original, one-of-a-kind game. You have played '
+            + this.attributes.gamesPlayed.toString() + ' times. would you like to play?',
             'Say yes to start the game or no to quit.');
     },
     "AMAZON.StopIntent": function() {
@@ -45,14 +46,15 @@ var startGameHandlers = Alexa.CreateStateHandler(states.STARTMODE, {
         this.emit('NewSession'); // Uses the handler in newSessionHandlers
     },
     'AMAZON.HelpIntent': function() {
-        var message = 'I will think of a number between zero and one hundred, try to guess and I will tell you if it' +
-            ' is higher or lower. Do you want to start the game?';
+        var message = 'First, you will place your boats one at a time. Then, you and I will take turns guessing where each ' +
+            'others ships are located until one of us sinks all of the others ships. That person will be declared da weiner.';
         this.emit(':ask', message, message);
     },
     'AMAZON.YesIntent': function() {
-        this.attributes["guessNumber"] = Math.floor(Math.random() * 100);
-        this.handler.state = states.GUESSMODE;
-        this.emit(':ask', 'Great! ' + 'Try saying a number to start the game.', 'Try saying a number.');
+        this.attributes.guessNumber = Math.floor(Math.random() * 100);
+        this.handler.state = states.PLACEMODE;
+        var repeat = 'Would you like me to randomly assign your boats locations? Say yes or no.';
+        this.emit(':ask', 'Great! Lets begin by placing your boats.' + repeat, repeat);
     },
     'AMAZON.NoIntent': function() {
         console.log("NOINTENT");
@@ -78,20 +80,79 @@ var startGameHandlers = Alexa.CreateStateHandler(states.STARTMODE, {
     }
 });
 
+var placeBoatModeHandlers = Alexa.CreateStateHandler(states.PLACEMODE, {
+  'NewSession': function () {
+      this.handler.state = '';
+      this.emitWithState('NewSession'); // Equivalent to the Start Mode NewSession handler
+  },
+  'PlaceBoatIntent': function () {
+      var startNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.startNumber.value);
+      var startLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.startLetter.value);
+      var endNumber = helper.moveNumberToXCoordinate(this.event.request.intent.slots.endNumber.value);
+      var endLetter = helper.moveLetterToYCoordinate(this.event.request.intent.slots.endLetter.value);
+      this.emit(':ask', startLetter + " " + startNumber + " to " + endLetter + " " + endNumber, 'hi');
+  },
+  'AMAZON.HelpIntent': function() {
+      var message = 'First, you will place your boats one at a time. Then, you and I will take turns guessing where each ' +
+          'others ships are located until one of us sinks all of the others ships. That person will be declared da weiner.';
+      this.emit(':ask', message, message);
+  },
+  'AMAZON.YesIntent': function() {
+      this.handler.state = states.GUESSMODE;
+      this.attributes.myBoard = helper.initializeMap();
+      this.attributes.myShipInfo = helper.initializeShipInfo();
+      this.attributes.aiBoard = helper.initializeMap();
+      this.attributes.aiShipInfo = helper.initializeShipInfo();
+      helper.placeShipsRandomly(this.attributes.myBoard, this.attributes.myShipInfo);
+      helper.placeShipsRandomly(this.attributes.aiBoard, this.attributes.aiShipInfo);
+      var repeat = 'Make a guess as to where my boats are, for example, a. five';
+      var testString = "";
+      for (var i = 0; i < this.attributes.myBoard.length; i++)
+      {
+        for (var j = 0; j < this.attributes.myBoard[0].length; j++)
+        {
+          testString += this.attributes.myBoard[i][j];
+        }
+        testString += ';';
+      }
+      this.emit(':ask', 'Fantastic! I promise I wont cheat. Now lets begin. Its your move, ' + testString, repeat);
+  },
+  'AMAZON.NoIntent': function() {
+      console.log("NOINTENT");
+      this.emit(':tell', 'Ok, see you next time!');
+  },
+  "AMAZON.StopIntent": function() {
+    console.log("STOPINTENT");
+    this.emit(':tell', "Goodbye!");
+  },
+  "AMAZON.CancelIntent": function() {
+    console.log("CANCELINTENT");
+    this.emit(':tell', "Goodbye!");
+  },
+  'SessionEndedRequest': function () {
+      console.log("SESSIONENDEDREQUEST");
+      //this.attributes['endedSessionCount'] += 1;
+      this.emit(':tell', "Goodbye!");
+  },
+  'Unhandled': function() {
+      console.log("UNHANDLED");
+      var message = 'Say yes to continue, or no to end the game.';
+      this.emit(':ask', message, message);
+  }
+});
+
 var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
     'NewSession': function () {
         this.handler.state = '';
         this.emitWithState('NewSession'); // Equivalent to the Start Mode NewSession handler
     },
-    'PlaceBoatIntent': function () {
-      this.emit(':ask', 'PlaceBoatIntent received');
-    },
+
     'GuessIntent': function () {
       this.emit(':ask', 'GuessIntent received');
     },
     'NumberGuessIntent': function() {
         var guessNum = parseInt(this.event.request.intent.slots.number.value);
-        var targetNum = this.attributes["guessNumber"];
+        var targetNum = this.attributes.guessNumber;
         console.log('user guessed: ' + guessNum);
 
         if(guessNum > targetNum){
@@ -103,7 +164,7 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
             this.emit('JustRight', () => {
                 this.emit(':ask', guessNum.toString() + 'is correct! Would you like to play a new game?',
                 'Say yes to start a new game, or no to end the game.');
-        })
+            });
         } else {
             this.emit('NotANum');
         }
@@ -121,7 +182,7 @@ var guessModeHandlers = Alexa.CreateStateHandler(states.GUESSMODE, {
     },
     'SessionEndedRequest': function () {
         console.log("SESSIONENDEDREQUEST");
-        this.attributes['endedSessionCount'] += 1;
+        this.attributes.endedSessionCount += 1;
         this.emit(':tell', "Goodbye!");
     },
     'Unhandled': function() {
@@ -140,7 +201,7 @@ var guessAttemptHandlers = {
     },
     'JustRight': function(callback) {
         this.handler.state = states.STARTMODE;
-        this.attributes['gamesPlayed']++;
+        this.attributes.gamesPlayed++;
         callback();
     },
     'NotANum': function() {
