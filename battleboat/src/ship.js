@@ -6,25 +6,30 @@
 //      Ships      //
 //=================//
 // Constructor
-function Ship(type, playerGrid, player) {
+function Ship(type, playerBoard, player) {
     this.damage = 0;
     this.type = type;
-    this.playerBoard = playerGrid;
+    this.playerBoard = playerBoard;
     this.player = player;
 
     switch (this.type) {
+        // Carrier
         case CONST.AVAILABLE_SHIPS[0]:
             this.shipLength = 5;
             break;
+        // Battleship
         case CONST.AVAILABLE_SHIPS[1]:
             this.shipLength = 4;
             break;
+        // Destroyer
         case CONST.AVAILABLE_SHIPS[2]:
             this.shipLength = 3;
             break;
+        // Submarine
         case CONST.AVAILABLE_SHIPS[3]:
             this.shipLength = 3;
             break;
+        // Patrolboat
         case CONST.AVAILABLE_SHIPS[4]:
             this.shipLength = 2;
             break;
@@ -39,7 +44,7 @@ function Ship(type, playerGrid, player) {
 // Checks to see if the placement of a ship is legal
 // Returns boolean
 Ship.prototype.isLegal = function(x, y, direction) {
-    // first, check if the ship is within the grid...
+    // first, check if the ship is within the board...
     if (this.withinBounds(x, y, direction)) {
         // ...then check to make sure it doesn't collide with another ship
         for (var i = 0; i < this.shipLength; i++) {
