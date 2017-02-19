@@ -7,11 +7,8 @@ var CONST = {};
 CONST.AVAILABLE_SHIPS = ['carrier', 'battleship', 'destroyer', 'submarine', 'patrolboat'];
 
 // You are player 0 and the computer is player 1
-// The virtual player is used for generating temporary ships
-// for calculating the probability heatmap
 CONST.HUMAN_PLAYER = 0;
 CONST.COMPUTER_PLAYER = 1;
-CONST.VIRTUAL_PLAYER = 2;
 
 // Possible values for the parameter `type` (string)
 CONST.CSS_TYPE_EMPTY = 'empty';
@@ -20,7 +17,7 @@ CONST.CSS_TYPE_MISS = 'miss';
 CONST.CSS_TYPE_HIT = 'hit';
 CONST.CSS_TYPE_SUNK = 'sunk';
 
-// Grid code:
+// Board code:
 CONST.TYPE_EMPTY = 0; // 0 = water (empty)
 CONST.TYPE_SHIP = 1; // 1 = undamaged ship
 CONST.TYPE_MISS = 2; // 2 = water with a cannonball in it (missed shot)
@@ -45,65 +42,18 @@ function Game(size) {
 }
 Game.size = 10; // Default grid size is 10x10
 Game.gameOver = false;
-// Checks if the game is won, and if it is, re-initializes the game
-Game.prototype.checkIfWon = function() {
-    if (this.computerFleet.allShipsSunk()) {
-        alert('Congratulations, you win!');
-        Game.gameOver = true;
-        Game.stats.wonGame();
-        Game.stats.syncStats();
-        Game.stats.updateStatsSidebar();
-        this.showRestartSidebar();
-    } else if (this.humanFleet.allShipsSunk()) {
-        alert('Yarr! The computer sank all your ships. Try again.');
-        Game.gameOver = true;
-        Game.stats.lostGame();
-        Game.stats.syncStats();
-        Game.stats.updateStatsSidebar();
-        this.showRestartSidebar();
-    }
-};
-// Shoots at the target player on the board.
-// Returns {int} Constants.TYPE: What the shot uncovered
-Game.prototype.shoot = function(x, y, targetPlayer) {
-    var targetGrid;
-    var targetFleet;
-    if (targetPlayer === CONST.HUMAN_PLAYER) {
-        targetGrid = this.humanBoard;
-        targetFleet = this.humanFleet;
-    } else if (targetPlayer === CONST.COMPUTER_PLAYER) {
-        targetGrid = this.computerBoard;
-        targetFleet = this.computerFleet;
-    } else {
-        // Should never be called
-        console.log("There was an error trying to find the correct player to target");
-    }
 
-    if (targetGrid.isDamagedShip(x, y)) {
-        return null;
-    } else if (targetGrid.isMiss(x, y)) {
-        return null;
-    } else if (targetGrid.isUndamagedShip(x, y)) {
-        // update the board/grid
-        targetGrid.updateCell(x, y, 'hit', targetPlayer);
-        // IMPORTANT: This function needs to be called _after_ updating the cell to a 'hit',
-        // because it overrides the CSS class to 'sunk' if we find that the ship was sunk
-        targetFleet.findShipByCoords(x, y).incrementDamage(); // increase the damage
-        this.checkIfWon();
-        return CONST.TYPE_HIT;
-    } else {
-        targetGrid.updateCell(x, y, 'miss', targetPlayer);
-        this.checkIfWon();
-        return CONST.TYPE_MISS;
-    }
-};
 // Initializes the Game. Also resets the game if previously initialized
 Game.prototype.init = function() {
+    // Create both boards
     this.humanBoard = new Board(Game.size);
     this.computerBoard = new Board(Game.size);
+
+    // Create both fleets
     this.humanFleet = new Fleet(this.humanBoard, CONST.HUMAN_PLAYER);
     this.computerFleet = new Fleet(this.computerBoard, CONST.COMPUTER_PLAYER);
 
+    // Create the AI
     this.robot = new AI(this);
 
     // Reset game variables
@@ -114,13 +64,60 @@ Game.prototype.init = function() {
     Game.placeShipType = '';
     Game.placeShipCoords = [];
 };
+
+// Checks if the game is won
+Game.prototype.checkIfWon = function() {
+    if (this.computerFleet.allShipsSunk()) {
+        alert('Congratulations, you win!');
+        Game.gameOver = true;
+    } else if (this.humanFleet.allShipsSunk()) {
+        alert('Yarr! The computer sank all your ships. Try again.');
+        Game.gameOver = true;
+    }
+};
+// Shoots at the target player on the board.
+// Returns {int} Constants.TYPE: What the shot uncovered
+Game.prototype.shoot = function(x, y, targetPlayer) {
+    var targetBoard;
+    var targetFleet;
+
+    // If you're shooting at the player
+    if (targetPlayer === CONST.HUMAN_PLAYER) {
+        targetBoard = this.humanBoard;
+        targetFleet = this.humanFleet;
+    }
+    // If you're shooting at the computer
+    else if (targetPlayer === CONST.COMPUTER_PLAYER) {
+        targetBoard = this.computerBoard;
+        targetFleet = this.computerFleet;
+    } else {
+        // Should never be called
+        console.log("There was an error trying to find the correct player to target");
+    }
+
+    if (targetBoard.isDamagedShip(x, y)) {
+        return null;
+    } else if (targetBoard.isMiss(x, y)) {
+        return null;
+    } else if (targetBoard.isUndamagedShip(x, y)) {
+        // update the board/grid
+        targetBoard.updateCell(x, y, 'hit', targetPlayer);
+        // IMPORTANT: This function needs to be called _after_ updating the cell to a 'hit',
+        // because it overrides the CSS class to 'sunk' if we find that the ship was sunk
+        targetFleet.findShipByCoords(x, y).incrementDamage(); // increase the damage
+        this.checkIfWon();
+        return CONST.TYPE_HIT;
+    } else {
+        targetBoard.updateCell(x, y, 'miss', targetPlayer);
+        this.checkIfWon();
+        return CONST.TYPE_MISS;
+    }
+};
+
 // Debugging function used to place all ships and just start
 Game.prototype.placeRandomly = function(e){
-    e.target.removeEventListener(e.type, arguments.callee);
     e.target.self.humanFleet.placeShipsRandomly();
     e.target.self.readyToPlay = true;
-    document.getElementById('roster-sidebar').setAttribute('class', 'hidden');
-    this.setAttribute('class', 'hidden');
 };
 // Ends placing the current ship
 Game.prototype.endPlacing = function(shipType) {
